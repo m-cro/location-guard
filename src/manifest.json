@@ -11,14 +11,14 @@
 		"64": "images/pin_64.png",
 		"128": "images/pin_128.png"
 	},
-	"version": "2.6.1",
+	"version": "2.6.2",
 
 #if is_firefox
 	// Needed for Firefox on Android. New id for this fork (the original
 	// jetpack id is registered to the upstream AMO listing).
 	"browser_specific_settings": {
 		"gecko": {
-			"id": "location-guard-fork@r-thak.github.io",
+			"id": "location-guard-r-thak@r-thak.github.io",
 			"data_collection_permissions": {
 				"required": ["none"]
 			}
