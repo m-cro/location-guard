@@ -15,9 +15,12 @@
 
 #if is_firefox
 	// Needed for Firefox on Android, same as the previous jetpack id
-	"applications": {
+	"browser_specific_settings": {
 		"gecko": {
-			"id": "jid1-HdwPLukcGQeOSh@jetpack"
+			"id": "jid1-HdwPLukcGQeOSh@jetpack",
+			"data_collection_permissions": {
+				"required": ["none"]
+			}
 		}
 	},
 #endif
