@@ -5,6 +5,7 @@ const L = require('leaflet');
 require('leaflet.locatecontrol');
 
 const Browser = require('../common/browser');
+const MapLayers = require('./map');
 
 Browser.inDemo = true;		// used in content.js
 var intro, steps;
@@ -14,7 +15,7 @@ var showPressed, geoDone;
 $.mobile.ajaxEnabled = false;
 $.mobile.linkBindingEnabled = false;
 
-$(document).ready(function() {
+$(document).ready(async function() {
 	$("#left-panel").panel().enhanceWithin();			// initialize panel
 
 	// open panel on swipe
@@ -25,14 +26,11 @@ $(document).ready(function() {
 
 	// setup map
 	demoMap = new L.map('demoMap')
-		.addLayer(new L.TileLayer(
-			Browser.gui.mapTiles().url,
-			Browser.gui.mapTiles().info,
-		))
 		.on('click', function(e){
 			intro.exit();
 		})
 		.setView([0,0], 2);
+	await MapLayers.addBaseLayer(demoMap);
 
 	// extend the Locate control and override the "start" method, so that it sets the marker to the user's location
 	// see https://github.com/domoritz/leaflet-locatecontrol

@@ -1,6 +1,6 @@
 // To avoid maintaining 4 separate manifest files, we pass this by the C
 // preprocessor during build. One of the following is always defined:
-//   is_chrome, is_firefox, is_opera, is_edge
+//   is_chrome, is_firefox, is_opera, is_edge, is_chromium_mv3
 {
 	"name": "Location Guard",
 	"description": "Hide your geographic location from websites.",
@@ -11,7 +11,7 @@
 		"64": "images/pin_64.png",
 		"128": "images/pin_128.png"
 	},
-	"version": "2.5.0",
+	"version": "2.6.0",
 
 #if is_firefox
 	// Needed for Firefox on Android, same as the previous jetpack id
@@ -22,14 +22,24 @@
 	},
 #endif
 
+#if is_chromium_mv3
+	"permissions": ["storage"],
+	"host_permissions": ["http://*/*", "https://*/*"],
+	"manifest_version": 3,
+#else
 	"permissions": ["http://*/*", "https://*/*", "storage"],
 	"manifest_version": 2,
+#endif
 
 	"background": {
-#if !is_firefox
+#if is_chromium_mv3
+		"service_worker": "js/service-worker.js"
+#elif !is_firefox
 		"persistent": false,
-#endif
 		"scripts": ["js/common.js", "js/main.js"]
+#else
+		"scripts": ["js/common.js", "js/main.js"]
+#endif
 	},
 
 	"options_ui": {
@@ -37,9 +47,15 @@
 		"open_in_tab": true
 	},
 
+#if !is_chromium_mv3
+	"web_accessible_resources": ["js/content/inject.js"],
+#endif
+
 // page_action has better user experience in Firefox
 // browser_action has better experience in Chrome/Edge
-#if is_chrome || is_edge
+#if is_chromium_mv3
+	"action": {
+#elif is_chrome || is_edge
 	"browser_action": {
 #else
 	"page_action": {
@@ -62,5 +78,15 @@
 		"matches": ["\u003Call_urls\u003E"],
 		"run_at": "document_start",
 		"all_frames": true
-	}]
+	}
+#if is_chromium_mv3
+	, {
+		"js": ["js/content/inject.js"],
+		"matches": ["\u003Call_urls\u003E"],
+		"run_at": "document_start",
+		"all_frames": true,
+		"world": "MAIN"
+	}
+#endif
+	]
 }

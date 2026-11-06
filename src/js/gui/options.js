@@ -2,16 +2,13 @@
 const $ = require('jquery');
 require('sglide');		// extends jquery
 
-// Requiring the plugins extends Leaflet automatically
 const L = require('leaflet');
-require('pelias-leaflet-plugin');
 require('leaflet.locatecontrol');
 
 const Browser = require('../common/browser');
 const PlanarLaplace = require('../common/laplace');
-
-const geocoderKey = '5b3ce3597851110001cf6248dc55f0492abe4923aa33f4ca1722acb8';
-const geocoderUrl = 'https://api.openrouteservice.org/geocode';
+const Util = require('../common/util');
+const MapLayers = require('./map');
 
 var levelMap, fixedPosMap;
 var epsilon;
@@ -26,9 +23,6 @@ var currentPos = {
 };
 
 Browser.init('options');
-(async function() {
-	epsilon = (await Browser.storage.get()).epsilon;
-}());
 
 
 // slider wrapper class, cause sGlide interface sucks
@@ -89,6 +83,37 @@ async function saveFixedPosNoAPI() {
 	await Browser.storage.set(st);
 }
 
+async function saveMapTiles() {
+	const st = await Browser.storage.get();
+	const enabled = $('#mapTilesEnabled').prop('checked');
+	const url = $('#mapTilesUrl').val().trim();
+	const attribution = $('#mapTilesAttribution').val().trim();
+	const attributionUrl = $('#mapTilesAttributionUrl').val().trim();
+	if(enabled && !Util.mapTileConfig({ mapTilesEnabled: true, mapTilesUrl: url, mapTilesAttribution: attribution, mapTilesAttributionUrl: attributionUrl })) {
+		$('#mapTilesError').text('Enter a valid HTTPS tile URL with {z}, {x}, and {y}, attribution text, and an optional HTTPS attribution link. Public OpenStreetMap tile hosts are not supported here.');
+		$('#mapTilesEnabled').prop('checked', false).checkboxradio('refresh');
+		st.mapTilesEnabled = false;
+		st.mapTilesUrl = url;
+		st.mapTilesAttribution = attribution;
+		st.mapTilesAttributionUrl = attributionUrl;
+		await Browser.storage.set(st);
+		await refreshMapLayers();
+		return;
+	}
+	$('#mapTilesError').text('');
+	st.mapTilesEnabled = enabled;
+	st.mapTilesUrl = url;
+	st.mapTilesAttribution = attribution;
+	st.mapTilesAttributionUrl = attributionUrl;
+	await Browser.storage.set(st);
+	await refreshMapLayers();
+}
+
+async function refreshMapLayers() {
+	if(levelMap) await MapLayers.addBaseLayer(levelMap);
+	if(fixedPosMap) await MapLayers.addBaseLayer(fixedPosMap);
+}
+
 async function saveLevel() {
 	const st = await Browser.storage.get();
 	var radius = sliderRadius.value;
@@ -109,15 +134,11 @@ async function saveLevel() {
 	await Browser.storage.set(st);
 }
 
-function initLevelMap() {
+async function initLevelMap() {
 	var latlng = [currentPos.latitude, currentPos.longitude];
 
 	// map
 	levelMap = L.map('levelMap')
-		.addLayer(new L.TileLayer(
-			Browser.gui.mapTiles().url,
-			Browser.gui.mapTiles().info,
-		))
 		.setView(latlng, 13)
 		.on('dragstart', function() {
 			levelMap.closePopup();
@@ -129,6 +150,7 @@ function initLevelMap() {
 			}
 			handleChangePosEvent(e);
 		});
+	await MapLayers.addBaseLayer(levelMap);
 
 	// marker
 	levelMap.marker = new L.marker(latlng, { draggable: true })
@@ -183,26 +205,16 @@ function initLevelMap() {
 		})
 	.addTo(levelMap);
 
-	// geocoder control
-	if(!Browser.capabilities.isAndroid()) // not enough space on smartphones, better have a cleaner interface
-		L.control.geocoder(geocoderKey, {
-        	url: geocoderUrl,
-			markers: false,
-			autocomplete: false
-		}).on('highlight', handleChangePosEvent)
-		  .on('select',    handleChangePosEvent)
-		  .addTo(levelMap);
 }
 
 async function initFixedPosMap() {
 	const st = await Browser.storage.get();
-	var latlng = [st.fixedPos.latitude, st.fixedPos.longitude];
+	var fixedPos = st.fixedPos || {};
+	if(!Util.isValidLatLng(fixedPos.latitude, fixedPos.longitude))
+		fixedPos = { latitude: -4.448784, longitude: -171.24832 };
+	var latlng = [fixedPos.latitude, fixedPos.longitude];
 
 	fixedPosMap = new L.map('fixedPosMap')
-		.addLayer(new L.TileLayer(
-			Browser.gui.mapTiles().url,
-			Browser.gui.mapTiles().info,
-		))
 		.setView(latlng, 14)
 		.on('dragstart', function() {
 			fixedPosMap.closePopup();
@@ -214,6 +226,7 @@ async function initFixedPosMap() {
 			}
 			saveFixedPos(e.latlng);
 		});
+	await MapLayers.addBaseLayer(fixedPosMap);
 
 	// marker
 	fixedPosMap.marker = new L.marker(latlng, { draggable: true })
@@ -249,34 +262,35 @@ async function initFixedPosMap() {
 		iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',		// font awesome
 	}).addTo(fixedPosMap);
 
-	// geocoder control
-	if(!Browser.capabilities.isAndroid()) // not enough space on smartphones, better have a cleaner interface
-		L.control.geocoder(geocoderKey, {
-			url: geocoderUrl,
-			markers: false,
-			autocomplete: false
-		}).on('results', function(e) {
-			// directly set position if the text is a latlon
-			var res = e.params.text.match(/^([-+]?[0-9]+\.[0-9]+)\s*,?\s*([-+]?[0-9]+\.[0-9]+)$/);
-			if(!res) return;
-
-			var latlng = L.latLng(parseFloat(res[1]), parseFloat(res[2]));
-			saveFixedPos(latlng);
-			fixedPosMap.setView(latlng, 14)
-			this.collapse();		// close the geocoder search
-
-		}).addTo(fixedPosMap);
 }
 
 async function saveFixedPos(latlng) {
 	const st = await Browser.storage.get();
 	var wrapped = latlng.wrap();			// force within normal range
+	if(!Util.isValidLatLng(wrapped.lat, wrapped.lng)) return false;
 	st.fixedPos = { latitude: wrapped.lat, longitude: wrapped.lng };
+	$('#fixedLatitude').val(wrapped.lat.toFixed(6));
+	$('#fixedLongitude').val(wrapped.lng.toFixed(6));
 
-	fixedPosMap.marker.setLatLng(latlng);
+	fixedPosMap.marker.setLatLng(wrapped);
 
 	Browser.log('saving st', st);
 	await Browser.storage.set(st);
+	return true;
+}
+
+async function saveFixedCoordinates() {
+	const latitudeText = $('#fixedLatitude').val().trim();
+	const longitudeText = $('#fixedLongitude').val().trim();
+	const latitude = Number(latitudeText);
+	const longitude = Number(longitudeText);
+	if(!latitudeText || !longitudeText || !Util.isValidLatLng(latitude, longitude)) {
+		$('#fixedCoordinatesError').text('Enter a latitude from -90 to 90 and longitude from -180 to 180.');
+		return;
+	}
+	$('#fixedCoordinatesError').text('');
+	await saveFixedPos(L.latLng(latitude, longitude));
+	fixedPosMap.setView([latitude, longitude], 14);
 }
 
 async function showLevelInfo() {
@@ -382,11 +396,11 @@ function initPages() {
 
 		if(inited[page]) {
 			// page already inited. only call invalidateSize on maps
-			if(page == "levels")   levelMap.invalidateSize();
-			if(page == "fixedPos") fixedPosMap.invalidateSize();
+			if(page == "levels" && levelMap)   levelMap.invalidateSize();
+			if(page == "fixedPos" && fixedPosMap) fixedPosMap.invalidateSize();
 			return;
 		}
-		inited[page] = true;
+		inited[page] = 'initializing';
 
 		// page initialization
 		//
@@ -396,8 +410,14 @@ function initPages() {
 			$('#paused').prop('checked', st.paused).checkboxradio("refresh");
 			$('#hideIcon').prop('checked', st.hideIcon).checkboxradio("refresh");
 			$('#updateAccuracy').prop('checked', st.updateAccuracy).checkboxradio("refresh");
+			$('#mapTilesEnabled').prop('checked', st.mapTilesEnabled === true).checkboxradio("refresh");
+			$('#mapTilesUrl').val(st.mapTilesUrl || '');
+			$('#mapTilesAttribution').val(st.mapTilesAttribution || '');
+			$('#mapTilesAttributionUrl').val(st.mapTilesAttributionUrl || '');
 
 		} else if (page == "levels") {
+			const st = await Browser.storage.get();
+			epsilon = st.epsilon;
 			sliderRadius = new Slider({
 				id: "setRadius",
 				min: 40,
@@ -418,15 +438,20 @@ function initPages() {
 				change: saveLevel,
 			});
 
-			initLevelMap();
-			showLevelInfo();
+			await initLevelMap();
+			await showLevelInfo();
 
 		} else if (page == "fixedPos") {
 			const st = await Browser.storage.get();
 			$('#fixedPosNoAPI').prop('checked', st.fixedPosNoAPI).checkboxradio("refresh");
+			const fixedPos = st.fixedPos && Util.isValidLatLng(st.fixedPos.latitude, st.fixedPos.longitude)
+				? st.fixedPos : { latitude: -4.448784, longitude: -171.24832 };
+			$('#fixedLatitude').val(fixedPos.latitude);
+			$('#fixedLongitude').val(fixedPos.longitude);
 
-			initFixedPosMap();
+			await initFixedPosMap();
 		}
+		inited[page] = true;
 	});
 }
 
@@ -471,8 +496,10 @@ $(document).ready(function() {
 			$("#left-panel").panel("open");
 	});
 
-	$("#options input, #options select").change(saveOptions);
+	$("#defaultLevel, #paused, #hideIcon, #updateAccuracy").change(saveOptions);
 	$("#fixedPosNoAPI").change(saveFixedPosNoAPI);
+	$("#mapTilesEnabled, #mapTilesUrl, #mapTilesAttribution, #mapTilesAttributionUrl").change(saveMapTiles);
+	$("#saveFixedCoordinates").click(saveFixedCoordinates);
 
 	$("#restoreDefaults").click(restoreDefaults);
 	$("#deleteCache").click(deleteCache);

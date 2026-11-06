@@ -8,7 +8,6 @@
 
 	<link rel="stylesheet" href="css/jquery.mobile-1.4.5.min.css">
 	<link rel="stylesheet" href="css/leaflet.css">
-	<link rel="stylesheet" href="css/leaflet-geocoder-mapzen.css">
 	<link rel="stylesheet" href="css/options.css">
 
 	<script src="js/common.js"></script>
@@ -43,6 +42,18 @@
 			<div data-role="controlgroup">
 				<button class="ui-btn showFAQ" faq="general">What is Location Guard?</button>
 				<button class="ui-btn reportIssue" faq="general">Report an issue</button>
+			</div>
+			<div class="map-provider-settings">
+				<h3>Map tiles</h3>
+				<label><input id="mapTilesEnabled" type="checkbox">Load tiles from my map provider</label>
+				<p class="small-font">Maps use an offline coordinate grid by default. When enabled, the configured provider receives tile requests and can see your IP address and the areas you view. Use a provider whose terms allow browser extensions. Enter its required attribution text and, when required, a link to its copyright or license information. The public OpenStreetMap tile servers are not supported here.</p>
+				<label for="mapTilesUrl">HTTPS tile URL template</label>
+				<input id="mapTilesUrl" type="url" placeholder="https://tiles.example/{z}/{x}/{y}.png">
+				<label for="mapTilesAttribution">Attribution text</label>
+				<input id="mapTilesAttribution" type="text" placeholder="Map data © Provider">
+				<label for="mapTilesAttributionUrl">Attribution/copyright/license link (optional)</label>
+				<input id="mapTilesAttributionUrl" type="url" placeholder="https://provider.example/terms">
+				<p id="mapTilesError" class="small-font map-settings-error" role="status"></p>
 			</div>
 		</div>
 	</div><!-- /page -->
@@ -87,6 +98,14 @@
 			<div id="fixedPosMap" class="flex"></div>
 
 			<div data-role="controlgroup" class="no-space">
+				<div class="fixed-coordinates">
+					<label for="fixedLatitude">Latitude</label>
+					<input id="fixedLatitude" type="number" min="-90" max="90" step="any">
+					<label for="fixedLongitude">Longitude</label>
+					<input id="fixedLongitude" type="number" min="-180" max="180" step="any">
+					<button class="ui-btn" id="saveFixedCoordinates">Set coordinates</button>
+					<p id="fixedCoordinatesError" class="small-font map-settings-error" role="status"></p>
+				</div>
 				<label>
 					<input id="fixedPosNoAPI" type="checkbox">Fixed location disables geolocation
 					<p class="small-font no-space"><b>warning: </b> this also disables the permission dialog</p>

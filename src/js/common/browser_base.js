@@ -2,7 +2,7 @@
 // Subclasses should implement the API defined here
 //
 if(typeof(browser) === 'undefined')
-	window.browser = chrome;
+	globalThis.browser = chrome;
 
 const Browser = {
 	debugging: null,				// null: auto set to true if running locally

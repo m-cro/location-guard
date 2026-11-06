@@ -50,7 +50,7 @@ Browser._main_script = function() {
 	// - the icon _is_ hidden on history.pushstate (eg on google maps when
 	//   clicking on some label) although the same page remains loaded
 	//
-	if(!Browser.capabilities.needsPAManualHide()) {
+	if(Browser.capabilities.needsPAManualHide()) {
 		Browser.gui.iconShown = {};
 
 		browser.tabs.onUpdated.addListener(function(tabId, info) {
@@ -79,7 +79,7 @@ Browser._main_script = function() {
 Browser.rpc.register = function(name, handler) {
 	// set onMessage listener if called for first time
 	if(!this._methods) {
-		this._methods = {};
+		this._methods = Object.create(null);
 		browser.runtime.onMessage.addListener(this._listener);
 	}
 	this._methods[name] = handler;
@@ -90,34 +90,52 @@ Browser.rpc.register = function(name, handler) {
 //
 Browser.rpc._listener = function(message, sender, replyHandler) {
 	Browser.log("RPC: got message", [message, sender, replyHandler]);
+	if(!message || typeof message.method != 'string' ||
+	   (message.args != null && !Array.isArray(message.args))) return false;
 
 	var handler = Browser.rpc._methods[message.method];
-	if(!handler) return;
+	if(!Object.prototype.hasOwnProperty.call(Browser.rpc._methods, message.method)) return;
 
 	// add tabId and replyHandler to the arguments
-	var args = message.args || [];
+	var args = (message.args || []).slice();
 	var tabId = sender.tab ? sender.tab.id : null;
 	args.push(tabId);
 
-	const res = handler.apply(null, args);
-	if(res instanceof Promise) {
+	var res;
+	try {
+		res = handler.apply(null, args);
+	} catch(err) {
+		Browser.log('RPC handler failed', message.method, err);
+		if(replyHandler) replyHandler(null);
+		return false;
+	}
+	if(res && typeof res.then == 'function') {
 		// handler returned a Promise. We return true here, to indicate that the response will come later.
-		res.then(replyHandler);
+		res.then(replyHandler, function(err) {
+			Browser.log('RPC handler failed', message.method, err);
+			if(replyHandler) replyHandler(null);
+		});
 		return true;
 	} else {
 		// We have a response right now
-		replyHandler(res);
+		if(replyHandler) replyHandler(res);
 		return false;
 	}
 };
 
 Browser.rpc.call = async function(tabId, name, args) {
 	return new Promise(resolve => {
-		var message = { method: name, args: args };
-		if(tabId)
-			browser.tabs.sendMessage(tabId, message, resolve);
+		var message = { method: name, args: args || [] };
+		var callback = function(result) {
+			// Chrome reports missing receivers and closed tabs through lastError.
+			// Treat them like the documented null response from an unavailable tab.
+			if(browser.runtime.lastError) resolve(null);
+			else resolve(result == null ? null : result);
+		};
+		if(tabId !== null && tabId !== undefined)
+			browser.tabs.sendMessage(tabId, message, callback);
 		else
-			browser.runtime.sendMessage(null, message, resolve);
+			browser.runtime.sendMessage(null, message, callback);
 	});
 }
 
@@ -221,24 +239,25 @@ Browser.gui._refreshPageAction = function(tabId, info) {
 }
 
 Browser.gui._refreshBrowserAction = function(tabId, info) {
+	const action = browser.action || browser.browserAction;
 	return new Promise(resolve => {
-		browser.browserAction.setTitle({
+		action.setTitle({
 			tabId: tabId,
 			title: info.title
 		});
-		browser.browserAction.setBadgeText({
+		action.setBadgeText({
 			tabId: tabId,
 			text: (info.apiCalls || "").toString()
 		});
-		browser.browserAction.setBadgeBackgroundColor({
+		action.setBadgeBackgroundColor({
 			tabId: tabId,
 			color: "#b12222"
 		});
-		browser.browserAction.setPopup({
+		action.setPopup({
 			tabId: tabId,
 			popup: "popup.html" + (tabId ? "?tabId="+tabId : "")	// pass tabId in the url
 		});
-		browser.browserAction.setIcon({
+		action.setIcon({
 			tabId: tabId,
 			path: Browser.gui._icons(info.private)
 		}, resolve);		// setIcon is the only browserAction.set* method with a callback
@@ -261,7 +280,7 @@ Browser.gui.refreshAllIcons = async function() {
 };
 
 Browser.gui.showPage = function(name) {
-	browser.tabs.create({ url: browser.extension.getURL(name) });
+	browser.tabs.create({ url: browser.runtime.getURL(name) });
 };
 
 Browser.gui.getCallUrl = async function(tabId) {
@@ -299,13 +318,9 @@ Browser.gui.getURL = function(url) {
 	return browser.runtime.getURL(url);
 }
 
-Browser.gui.mapTiles = function() {
-	return {
-		url: Browser.capabilities.isBrave()
-			? 'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png'
-			: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-		info: { attribution: 'Map data © OpenStreetMap contributors' }
-	};
+Browser.gui.mapTiles = async function() {
+	const st = await Browser.storage.get();
+	return Util.mapTileConfig(st);
 }
 
 
@@ -342,7 +357,14 @@ Browser.capabilities.iframeGeoFromOwnDomain = function() {
 
 Browser.capabilities.permanentIcon = function() {
 	// we use browserAction in browsers where pageAction is not properly supported (eg Chrome)
-	return !!browser.runtime.getManifest().browser_action;
+	const manifest = browser.runtime.getManifest();
+	return !!(manifest.action || manifest.browser_action);
+}
+
+// In Chromium Manifest V3, content scripts run in the isolated world and page
+// injection is provided by a separate MAIN-world content script.
+Browser.capabilities.mainWorldContentScript = function() {
+	return browser.runtime.getManifest().manifest_version >= 3;
 }
 
 Browser.capabilities.supportedIconSizes = function() {

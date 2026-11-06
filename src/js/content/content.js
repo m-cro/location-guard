@@ -40,13 +40,16 @@ function insertScript(inline, data) {
 }
 
 // DEMO: save the getCurrentPosition function, cause in the demo page it gets replaced (no separate js environment)
-var getCurrentPosition = navigator.geolocation.getCurrentPosition;
+var getCurrentPosition = navigator.geolocation && navigator.geolocation.getCurrentPosition;
+var nativeWatchPosition = navigator.geolocation && navigator.geolocation.watchPosition;
+var nativeClearWatch = navigator.geolocation && navigator.geolocation.clearWatch;
 
 if(Browser.inDemo) {	// DEMO: this is set in demo.js
 	// DEMO: we are inside the page, just run injectedCode()
 	injectedCode(PostRPC);
 
-} else if(document.documentElement.tagName.toLowerCase() == 'html') { // only for html
+} else if(!Browser.capabilities.mainWorldContentScript() &&
+	 document.documentElement.tagName.toLowerCase() == 'html') { // only for html
 	// We first try to inject the code in an inline <script>. This is the only way to force it to run immediately.
 	// We run the PostRPC code (which creates PostRPC) and pass the result to the injectedCode.
 	//
@@ -70,51 +73,130 @@ var inFrame = (window != window.top);	// are we in a frame?
 var apiCalls = 0;						// how many times the API has been called here or in an iframe
 var myUrl = Browser.inDemo ? 'http://demo-page/' : window.location.href;	// DEMO: user-friendly url
 var callUrl = myUrl;					// the url from which the last call is _shown_ to be made (it could be a nested frame if the last call was made there and Browser.capabilities.iframeGeoFromOwnDomain() is true)
+var activeWatches = {};
+var cancelledWatches = {};
 
 // methods called by the page
 //
 var rpc = new PostRPC('page-content', window, window, window.origin);
 rpc.register('getNoisyPosition', async function(options) {
-	callUrl = myUrl;	// last call happened here
-	if(inFrame) {
-		// we're in a frame, we need to notify the top window, and get back the *url used in the permission dialog*
-		// (which might be either the iframe url, or the top window url, depending on how the browser handles permissions).
-		// To avoid cross-origin issues, we call apiCalledInFrame in the main script, which echoes the
-		// call back to this tab to be answered by the top window
-		if(!Browser.capabilities.iframeGeoFromOwnDomain())
-			callUrl = await Browser.rpc.call(null, 'apiCalledInFrame', [myUrl]);
-	} else {
-		// refresh icon before fetching the location
-		apiCalls++;
-		Browser.gui.refreshIcon('self');
-	}
-
-	return await getNoisyPosition(options);
+	const requestDomain = await recordApiCall();
+	return await getNoisyPosition(options, requestDomain);
 });
-rpc.register('watchAllowed', async function(firstCall) {
-	// Returns true if using the real watch is allowed. Only if paused or level == 'real'.
-	// Also don't allow in iframes (to simplify the code).
+// Keep native watch access in the isolated content-script world. A decision
+// sent to page JavaScript over postMessage can be forged by that page.
+rpc.register('startWatch', async function(handler, options) {
+	if(!Number.isInteger(handler)) return false;
+	if(activeWatches[handler]) return false;
+	if(cancelledWatches[handler]) {
+		delete cancelledWatches[handler];
+		return false;
+	}
+	const watch = { handler: handler, active: true, nativeId: null, domain: null };
+	activeWatches[handler] = watch;
+	const requestDomain = await recordApiCall();
+	if(!watch.active) return false;
 	const st = await Browser.storage.get();
-	var level = st.domainLevel[Util.extractDomain(myUrl)] || st.defaultLevel;
-	var allowed = !inFrame && (st.paused || level == 'real');
+	if(!watch.active) return false;
+	const level = st.domainLevel[requestDomain] || st.defaultLevel;
+	const allowed = !inFrame && (st.paused || level == 'real');
+	watch.domain = requestDomain;
 
-	if(allowed && !firstCall) {
+	if(allowed && nativeWatchPosition && nativeClearWatch) {
+		try {
+			watch.nativeId = nativeWatchPosition.apply(navigator.geolocation, [
+				position => deliverNativeWatchPosition(watch, serializePosition(position)),
+				error => deliverWatchUpdate(watch, false, serializePositionError(error)),
+				options
+			]);
+		} catch(err) {
+			deliverWatchUpdate(watch, false, { code: 2, message: err && err.message || 'Position unavailable' });
+		}
+	} else {
+		try {
+			const result = await getNoisyPosition(options, requestDomain);
+			if(watch.active) deliverWatchUpdate(watch, result.success, result.position, true);
+		} catch(err) {
+			if(watch.active) deliverWatchUpdate(watch, false, { code: 2, message: err && err.message || 'Position unavailable' }, true);
+		} finally {
+			watch.active = false;
+			delete activeWatches[handler];
+			delete cancelledWatches[handler];
+		}
+	}
+	return true;
+});
+
+rpc.register('stopWatch', function(handler) {
+	if(!Number.isInteger(handler)) return false;
+	cancelledWatches[handler] = true;
+	const watch = activeWatches[handler];
+	if(watch) {
+		watch.active = false;
+		delete activeWatches[handler];
+		if(watch.nativeId != null)
+			nativeClearWatch.apply(navigator.geolocation, [watch.nativeId]);
+		delete cancelledWatches[handler];
+	}
+	return true;
+});
+
+async function recordApiCall() {
+	callUrl = myUrl;
+	if(inFrame && !Browser.capabilities.iframeGeoFromOwnDomain())
+		callUrl = await Browser.rpc.call(null, 'apiCalledInFrame', [myUrl]);
+	else if(!inFrame) {
 		apiCalls++;
 		Browser.gui.refreshIcon('self');
 	}
-	return allowed;
-});
+	return Util.extractDomain(callUrl);
+}
+
+async function deliverNativeWatchPosition(watch, position) {
+	if(!watch.active) return;
+	let st;
+	try {
+		st = await Browser.storage.get();
+	} catch(err) {
+		if(watch.active) {
+			if(watch.nativeId != null) nativeClearWatch.apply(navigator.geolocation, [watch.nativeId]);
+			deliverWatchUpdate(watch, false, { code: 2, message: err && err.message || 'Position unavailable' });
+			watch.active = false;
+			delete activeWatches[watch.handler];
+		}
+		return;
+	}
+	const level = st.domainLevel[watch.domain] || st.defaultLevel;
+	if(inFrame || (!st.paused && level != 'real')) {
+		// Stop the native watch as soon as protection becomes active.
+		watch.active = false;
+		if(watch.nativeId != null) nativeClearWatch.apply(navigator.geolocation, [watch.nativeId]);
+		delete activeWatches[watch.handler];
+		return;
+	}
+	if(!watch.active) return;
+	apiCalls++;
+	Browser.gui.refreshIcon('self');
+	deliverWatchUpdate(watch, true, position, false);
+}
+
+function deliverWatchUpdate(watch, success, position, done) {
+	if(!watch.active) return;
+	rpc.call('watchUpdate', [watch.handler, success, position, !!done]).catch(function(err) {
+		Browser.log('failed to deliver geolocation watch update', err);
+	});
+}
 
 // gets the options passed to the fake navigator.geolocation.getCurrentPosition.
 // Either returns fixed pos directly, or calls the real one, then calls addNoise.
 //
-async function getNoisyPosition(options) {
+async function getNoisyPosition(options, requestDomain) {
 	const st = await Browser.storage.get();
 
 	// if level == 'fixed' and fixedPosNoAPI == true, then we return the
 	// fixed position without calling the geolocation API at all.
 	//
-	var domain = Util.extractDomain(callUrl);
+	var domain = requestDomain;
 	var level = st.domainLevel[domain] || st.defaultLevel;
 
 	if(!st.paused && level == 'fixed' && st.fixedPosNoAPI) {
@@ -138,26 +220,61 @@ async function getNoisyPosition(options) {
 		// we call getCurrentPosition here in the content script, instead of
 		// inside the page, because the content-script/page communication is not secure
 		//
+		if(!getCurrentPosition) {
+			resolve({ success: false, position: { code: 2, message: 'Geolocation is unavailable' } });
+			return;
+		}
+		try {
 		getCurrentPosition.apply(navigator.geolocation, [
 			async function(position) {
 				// clone, modifying/sending the native object returns error
-				const noisy = await addNoise(Util.clone(position));
-				resolve({ success: true, position: noisy });
+				try {
+					const noisy = await addNoise(serializePosition(position), requestDomain);
+					resolve({ success: true, position: noisy });
+				} catch(err) {
+					resolve({ success: false, position: { code: 2, message: err && err.message || 'Position unavailable' } });
+				}
 			},
 			function(error) {
-				resolve({ success: false, position: Util.clone(error) });		// clone, sending the native object returns error
+				resolve({ success: false, position: serializePositionError(error) });
 			},
 			options
 		]);
+		} catch(err) {
+			resolve({ success: false, position: { code: 2, message: err && err.message || 'Position unavailable' } });
+		}
 	});
+}
+
+// Native GeolocationPosition and GeolocationPositionError properties can be
+// exposed through prototypes and are not reliably cloned by enumeration.
+// Copy only the standard scalar fields before sending the result through RPC.
+function serializePosition(position) {
+	const coords = position.coords;
+	return {
+		coords: {
+			latitude: coords.latitude,
+			longitude: coords.longitude,
+			accuracy: coords.accuracy,
+			altitude: coords.altitude,
+			altitudeAccuracy: coords.altitudeAccuracy,
+			heading: coords.heading,
+			speed: coords.speed
+		},
+		timestamp: position.timestamp
+	};
+}
+
+function serializePositionError(error) {
+	return { code: error.code, message: error.message };
 }
 
 // gets position, returs noisy version based on the privacy options
 //
-async function addNoise(position) {
+async function addNoise(position, domain) {
 	const st = await Browser.storage.get();
-	var domain = Util.extractDomain(callUrl);
 	var level = st.domainLevel[domain] || st.defaultLevel;
+	var cacheNoisy = false;
 
 	if(st.paused || level == 'real') {
 		// do nothing, use real location
@@ -192,17 +309,23 @@ async function addNoise(position) {
 		if(position.coords.accuracy && st.updateAccuracy)
 			position.coords.accuracy += Math.round(pl.alphaDeltaAccuracy(epsilon, .9));
 
-		// don't know how to add noise to those, so we set to null (they're most likely null anyway)
-		position.altitude = null;
-		position.altitudeAccuracy = null;
-		position.heading = null;
-		position.speed = null;
-
-		// cache
-		st.cachedPos[level] = { epoch: (new Date).getTime(), position: position };
-		await Browser.storage.set(st);
+		cacheNoisy = true;
 
 		Browser.log('noisy coords', position.coords);
+	}
+
+	// These measurements are directly tied to the user's physical location and
+	// are not protected by the horizontal noise mechanism. Strip them from every
+	// protected response, including values loaded from an older cache entry.
+	if(!st.paused && level != 'real') {
+		position.coords.altitude = null;
+		position.coords.altitudeAccuracy = null;
+		position.coords.heading = null;
+		position.coords.speed = null;
+	}
+	if(cacheNoisy) {
+		st.cachedPos[level] = { epoch: (new Date).getTime(), position: position };
+		await Browser.storage.set(st);
 	}
 
 	// return noisy position

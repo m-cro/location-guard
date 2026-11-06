@@ -28,6 +28,63 @@ var Util = {
 		return o;
 	},
 
+	// Validate user-configured map tiles before contacting a remote provider.
+	// Extensions cannot set a dependable identifying User-Agent for OSM's public
+	// tile service, so those endpoints are deliberately excluded here.
+	mapTileConfig: function(settings) {
+		if(!settings || settings.mapTilesEnabled !== true)
+			return null;
+
+		var url = typeof settings.mapTilesUrl === 'string' ? settings.mapTilesUrl.trim() : '';
+		var attribution = typeof settings.mapTilesAttribution === 'string' ? settings.mapTilesAttribution.trim() : '';
+		var attributionUrl = typeof settings.mapTilesAttributionUrl === 'string' ? settings.mapTilesAttributionUrl.trim() : '';
+		if(!url || !attribution || !/^https:\/\//i.test(url) ||
+			!url.includes('{z}') || !url.includes('{x}') || !url.includes('{y}'))
+			return null;
+
+		// Replace Leaflet placeholders for URL parsing. Reject the public OSM
+		// tile hosts, including subdomains, because extension requests cannot
+		// reliably provide the identifying headers required by their policy.
+		var parsed;
+		try {
+			parsed = new URL(url.replace(/\{[^}]+\}/g, 'placeholder'));
+		} catch(e) {
+			return null;
+		}
+		var host = parsed.hostname.toLowerCase().replace(/\.+$/, '');
+		if(parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+			host === 'tile.openstreetmap.org' || host.endsWith('.tile.openstreetmap.org') ||
+			host === 'tile.openstreetmap.de' || host.endsWith('.tile.openstreetmap.de'))
+			return null;
+
+		if(attributionUrl) {
+			var parsedAttributionUrl;
+			try {
+				parsedAttributionUrl = new URL(attributionUrl);
+			} catch(e) {
+				return null;
+			}
+			if(parsedAttributionUrl.protocol !== 'https:' || parsedAttributionUrl.username || parsedAttributionUrl.password)
+				return null;
+			attributionUrl = parsedAttributionUrl.href;
+		}
+
+		// Leaflet treats attribution as HTML. Escape it so stored text cannot
+		// inject markup into the extension page.
+		function escapeHtml(value) {
+			return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+		}
+		attribution = escapeHtml(attribution);
+		if(attributionUrl)
+			attribution = '<a href="' + escapeHtml(attributionUrl) + '" target="_blank" rel="noopener noreferrer">' + attribution + '</a>';
+		return { url: url, info: { attribution: attribution } };
+	},
+
+	isValidLatLng: function(latitude, longitude) {
+		return Number.isFinite(latitude) && Number.isFinite(longitude) &&
+			latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+	},
+
 	// Get icon information. 'about' can be:
 	//   tabId
 	//   null (get info for the default icon)

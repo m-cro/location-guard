@@ -11,9 +11,22 @@ module.exports = function(PostRPC) {
 				prpc = new PostRPC('page-content', window, window, window.origin);	// This PostRPC is created by the injected code!
 			return prpc;
 		}
-		async function callCb(cb, pos, checkAllowed) {
-			if(cb && (!checkAllowed || await getPostRPC().call('watchAllowed', [false])))
-				cb(pos);
+		const handlers = {};
+		let nextHandler = 0;
+		let watchUpdateRegistered = false;
+		function registerWatchUpdate() {
+			if(watchUpdateRegistered) return;
+			getPostRPC().register('watchUpdate', function(handler, success, position, done) {
+				const watch = handlers[handler];
+				if(!watch || !watch.active) return;
+				const cb = success ? watch.success : watch.error;
+				if(cb) cb(position);
+				if(done) {
+					watch.active = false;
+					delete handlers[handler];
+				}
+			});
+			watchUpdateRegistered = true;
 		}
 
 		// We replace geolocation methods with our own.
@@ -23,37 +36,46 @@ module.exports = function(PostRPC) {
 		navigator.geolocation.getCurrentPosition = async function(cb1, cb2, options) {
 			// call getNoisyPosition on the content-script
 			// call cb1 on success, cb2 on failure
-			const res = await getPostRPC().call('getNoisyPosition', [options]);
-			callCb(res.success ? cb1 : cb2, res.position, false);
+			try {
+				// Preserve the native geolocation timeout. Add a small allowance for
+				// the content/page message round trip when the caller set one.
+				const rpcTimeout = options && Number.isFinite(options.timeout) ? options.timeout + 10000 : 0;
+				const res = await getPostRPC().call('getNoisyPosition', [options], rpcTimeout);
+				const cb = res.success ? cb1 : cb2;
+				if(cb) cb(res.position);
+			} catch(err) {
+				if(cb2) cb2({ code: 2, message: err && err.message || 'Position unavailable' });
+			}
 		};
 
-		const watchPosition = navigator.geolocation.watchPosition;
-		const handlers = {};
 		navigator.geolocation.watchPosition = function(cb1, cb2, options) {
-			// We need to return a handler synchronously, but decide whether we'll use the real watchPosition or not
-			// asynchronously. So we create our own handler, and we'll associate it with the real one later.
-			const handler = Math.floor(Math.random()*10000);
+			// The content script decides whether the watch can expose real position
+			// data. The page never invokes the captured native watchPosition itself.
+			const handler = nextHandler++;
+			const watch = { active: true, success: cb1, error: cb2 };
+			handlers[handler] = watch;
+			registerWatchUpdate();
 
-			(async () => {
-				if(await getPostRPC().call('watchAllowed', [true]))
-					// We're allowed to call the real watchPosition (note: remember the handler)
-					handlers[handler] = watchPosition.apply(navigator.geolocation, [
-						position => callCb(cb1, position, true),	// ignore the call if privacy protection
-						error    => callCb(cb2, error, true),		// becomes active later!
-						options
-					]);
-				else
-					// Not allowed, we don't install a real watch, just return the position once
-					this.getCurrentPosition(cb1, cb2, options);
-			})();
+			getPostRPC().call('startWatch', [handler, options]).then(started => {
+				if(!started && watch.active) {
+					watch.active = false;
+					delete handlers[handler];
+					if(cb2) cb2({ code: 2, message: 'Position unavailable' });
+				}
+			}).catch(err => {
+				if(watch.active && cb2) cb2({ code: 2, message: err && err.message || 'Position unavailable' });
+				watch.active = false;
+				delete handlers[handler];
+			});
 			return handler;
 		};
 
-		const clearWatch = navigator.geolocation.clearWatch;
 		navigator.geolocation.clearWatch = function (handler) {
-			if(handler in handlers) {
-				clearWatch.apply(navigator.geolocation, [handlers[handler]]);
+			const watch = handlers[handler];
+			if(watch) {
+				watch.active = false;
 				delete handlers[handler];
+				getPostRPC().call('stopWatch', [handler]).catch(() => {});
 			}
 		};
 	}

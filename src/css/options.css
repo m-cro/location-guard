@@ -64,9 +64,35 @@
 	font-weight: normal;
 	font-size: small;
 }
+.map-provider-settings {
+	margin-top: 2em;
+	padding-top: 0.5em;
+	border-top: 1px solid #ddd;
+}
+.map-provider-settings h3 {
+	margin-bottom: 0.4em;
+}
+.map-settings-error {
+	color: #a00;
+}
+.fixed-coordinates {
+	padding: 0.5em 0;
+}
+.fixed-coordinates .ui-input-text {
+	margin-top: 0;
+}
 
 .map-popup {
 	font-size: 1.2em;
+}
+.map-offline-note {
+	padding: 0.35em 0.55em;
+	background: rgba(255, 255, 255, 0.9);
+	color: #34434a;
+	font-size: 0.85em;
+	border-radius: 3px;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+	pointer-events: none;
 }
 .popup-location-btn {
 	width: 1.2em;

@@ -12,6 +12,35 @@ It supports the followng browsers:
 Location Guard is available under either the [MIT/X11](https://opensource.org/licenses/mit-license.php)
 or the [CeCILL-B](http://www.cecill.info/licences.fr.html) license.
 
+## Building and testing
+
+Use Node.js 24 or newer and run:
+
+```sh
+npm ci
+npm test
+make build-chrome build-firefox build-edge build-opera
+```
+
+Chrome, Edge, and Opera builds use Manifest V3 with a service worker. Firefox
+uses Manifest V2. Create installable archives with `make package-chrome
+package-firefox package-edge package-opera`. To launch a local Chrome build
+with an automated UI and geolocation smoke check, use a Chrome for Testing or
+Chromium executable and run:
+
+```sh
+make test-chrome CHROME="/path/to/Google Chrome for Testing"
+```
+
+Chrome 137 and newer ignore `--load-extension` for branded Google Chrome, so
+use [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/)
+or Chromium for this check. It starts headless Chrome with its browser sandbox
+enabled, a temporary profile, and a localhost test page; the script removes the
+profile when it exits. In restricted macOS automation sandboxes, run the check
+where Chrome can access macOS application services and bind localhost. The
+extension build itself remains loadable in regular Chrome through the
+Extensions page's **Load unpacked** action.
+
 ## Frequently Asked Questions
 
 ### What is Location Guard?
@@ -114,9 +143,17 @@ Location Guard takes your privacy seriously! First, the extension itself has no
 "special permission" to access your location, it can obtain it only when a
 website asks for it and only if you allow access in the permission dialog.
 
-Location Guard runs locally in your browser and _sends no information_
-whatsoever to the network. It only communicates your fake location to the
-website that asks for it.
+Location Guard processes location requests locally and does not send your real
+or fake location to a Location Guard server. The fake location is shared with
+the website that requested it. Maps use an offline coordinate grid by default.
+If you enable an external tile provider in Options, your browser requests map
+tiles from that provider, which can see your IP address and the areas you view.
+When enabling tiles, configure the attribution text and, if required by the
+provider, its HTTPS copyright or license link.
+The public OpenStreetMap tile servers are not offered as a provider because
+this extension does not set a dedicated application User-Agent. Use a tile
+provider whose terms support browser extensions. See the
+[OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 Location Guard also never stores your real location. The _fake_ location is
 cached for a small period of time; if a website asks for your location during

@@ -129,8 +129,12 @@ issue.
 					permission" to access your location, it can obtain it only when a website asks for it and only if
 					you allow access in the permission dialog.</p>
 
-					<p>Location Guard runs locally in your browser and <i>sends no information</i> whatsoever to the
-					network. It only communicates your fake location to the website that asks for it.</p>
+					<p>Location Guard processes location requests locally and does not send your real or fake location to a
+					Location Guard server. If you enable an external map tile provider in Options, your browser requests map
+					tiles from that provider; it can see your IP address and the areas you view. Map tiles are disabled by default.
+					When enabling tiles, configure the required attribution and any HTTPS copyright or license link.</p>
+
+					<p>The fake location is shared with the website that requested your location.</p>
 
 					<p>Location Guard also never stores your real location. The <i>fake</i> location is cached for a
 					small period of time; if a website asks for your location during this time the cached fake location
