@@ -14,10 +14,11 @@
 	"version": "2.6.0",
 
 #if is_firefox
-	// Needed for Firefox on Android, same as the previous jetpack id
+	// Needed for Firefox on Android. New id for this fork (the original
+	// jetpack id is registered to the upstream AMO listing).
 	"browser_specific_settings": {
 		"gecko": {
-			"id": "jid1-HdwPLukcGQeOSh@jetpack",
+			"id": "location-guard-fork@r-thak.github.io",
 			"data_collection_permissions": {
 				"required": ["none"]
 			}
