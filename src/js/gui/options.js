@@ -1,11 +1,10 @@
 
-const L = require('leaflet');
-require('leaflet.locatecontrol');
 
 const Browser = require('../common/browser');
 const PlanarLaplace = require('../common/laplace');
 const Util = require('../common/util');
 const MapLayers = require('./map');
+const { GeoMap, Circle, Marker, Popup } = require('./minimap');
 const { byId, h, initPanel } = require('./ui');
 
 var levelMap, fixedPosMap;
@@ -126,13 +125,13 @@ async function initLevelMap() {
 	var latlng = [currentPos.latitude, currentPos.longitude];
 
 	// map
-	levelMap = L.map('levelMap')
+	levelMap = new GeoMap('levelMap')
 		.setView(latlng, 13)
 		.on('dragstart', function() {
 			levelMap.closePopup();
 		})
 		.on('click', function(e){
-			if(levelMap.popup._isOpen) {	// if popup is open, close it
+			if(levelMap.popup.isOpen()) {	// if popup is open, close it
 				levelMap.closePopup();
 				return;
 			}
@@ -141,7 +140,7 @@ async function initLevelMap() {
 	await MapLayers.addBaseLayer(levelMap);
 
 	// marker
-	levelMap.marker = new L.marker(latlng, { draggable: true })
+	levelMap.marker = new Marker(latlng, { draggable: true })
 		.addTo(levelMap)
 		.on('click', function() {
 			showPopup(levelMap);
@@ -161,42 +160,26 @@ async function initLevelMap() {
 			locateLink, ' to show your current location.')
 	);
 
-	levelMap.popup = L.popup({
-			autoPan: false,
-			closeOnClick: false,		// we'll close it ourselves
+	levelMap.popup = new Popup({
 			maxWidth: Math.min(byId('levelMap').clientWidth - 50, 300),
 		})
 		.setContent(popupContent);
 
 	// circles (accuracy circle first to be on bottom)
-	levelMap.accuracy = new L.Circle(latlng, 1500, {
-			color: null,
+	levelMap.accuracy = new Circle(latlng, 1500, {
 			fillColor: 'blue',
 			fillOpacity: 0.4,
-			clickable: false,
 		})
 		.addTo(levelMap);
 
-	levelMap.protection = new L.Circle(latlng, 500, {
-			color: null,
+	levelMap.protection = new Circle(latlng, 500, {
 			fillColor: '#f03',
 			fillOpacity: 0.4,
-			clickable: false,
 		})
 		.addTo(levelMap);
 
-	// extend the Locate control and override the "start" method, so that it sets the marker to the user's location
-	// see https://github.com/domoritz/leaflet-locatecontrol
-	//
-	var myLocate = L.Control.Locate.extend({
-	   start: showCurrentPosition
-	});
-	new myLocate({
-			icon: 'icon-location',				// use our own icon to avoid loading
-			iconLoading: 'icon-location',		// font awesome
-		})
-	.addTo(levelMap);
-
+	// "show my location" button
+	levelMap.addButton('gm-locate', 'Show my location', showCurrentPosition);
 }
 
 async function initFixedPosMap() {
@@ -206,13 +189,13 @@ async function initFixedPosMap() {
 		fixedPos = { latitude: -4.448784, longitude: -171.24832 };
 	var latlng = [fixedPos.latitude, fixedPos.longitude];
 
-	fixedPosMap = new L.map('fixedPosMap')
+	fixedPosMap = new GeoMap('fixedPosMap')
 		.setView(latlng, 14)
 		.on('dragstart', function() {
 			fixedPosMap.closePopup();
 		})
 		.on('click', function(e) {
-			if(fixedPosMap.popup._isOpen) {	// if popup is open, close it
+			if(fixedPosMap.popup.isOpen()) {	// if popup is open, close it
 				fixedPosMap.closePopup();
 				return;
 			}
@@ -221,13 +204,13 @@ async function initFixedPosMap() {
 	await MapLayers.addBaseLayer(fixedPosMap);
 
 	// marker
-	fixedPosMap.marker = new L.marker(latlng, { draggable: true })
+	fixedPosMap.marker = new Marker(latlng, { draggable: true })
 		.addTo(fixedPosMap)
 		.on('click', function() {
 			showPopup(fixedPosMap);
 		})
 		.on('dragend', function(e) {
-			saveFixedPos(e.target._latlng);
+			saveFixedPos(e.latlng);
 		});
 
 	// popup
@@ -236,28 +219,20 @@ async function initFixedPosMap() {
 		h('p', {}, 'Click on the map or drag the marker to set a new fixed location.')
 	);
 
-	fixedPosMap.popup = L.popup({
-			autoPan: false,
-			closeOnClick: false,		// we'll close it ourselves
+	fixedPosMap.popup = new Popup({
 			maxWidth: Math.min(byId('fixedPosMap').clientWidth - 50, 300),
 		})
 		.setContent(popupContent);
 
 	showPopup(fixedPosMap);
 
-	// locate control
-	L.control.locate({
-		drawCircle: false,
-		follow: false,
-		icon: 'icon-location',				// use our own icon to avoid loading
-		iconLoading: 'icon-location',		// font awesome
-	}).addTo(fixedPosMap);
-
+	// "show my location" button
+	fixedPosMap.addButton('gm-locate', 'Show my location', showCurrentPositionFixed);
 }
 
 async function saveFixedPos(latlng) {
 	const st = await Browser.storage.get();
-	var wrapped = latlng.wrap();			// force within normal range
+	var wrapped = latlng;			// already within the normal range
 	if(!Util.isValidLatLng(wrapped.lat, wrapped.lng)) return false;
 	st.fixedPos = { latitude: wrapped.lat, longitude: wrapped.lng };
 	byId('fixedLatitude').value = wrapped.lat.toFixed(6);
@@ -280,7 +255,7 @@ async function saveFixedCoordinates() {
 		return;
 	}
 	byId('fixedCoordinatesError').textContent = '';
-	await saveFixedPos(L.latLng(latitude, longitude));
+	await saveFixedPos({ lat: latitude, lng: longitude });
 	fixedPosMap.setView([latitude, longitude], 14);
 }
 
@@ -315,7 +290,7 @@ function moveCircles() {
 }
 
 function showPopup(map) {
-	var smallSize = map._container.clientWidth < 500 || map._container.clientHeight < 450;
+	var smallSize = map.el.clientWidth < 500 || map.el.clientHeight < 450;
 
 	// on small screens we center the popup at the bottom of the map
 	// on large screens we open at the marker
@@ -327,18 +302,15 @@ function showPopup(map) {
 		latlng.lat = bounds.getSouth();
 	} else {
 		// get pos 30 pixes above the marker
-		var pos = map.latLngToLayerPoint(map.marker._latlng);
+		var pos = map.latLngToPoint(map.marker.getLatLng());
 		pos.y -= 30;
-		latlng = map.layerPointToLatLng(pos);
+		latlng = map.pointToLatLng(pos);
 	}
 
 	map.popup
 		.setLatLng(latlng)
-		.openOn(map);
-
-	// hide popup "arrow" on small screens
-	for(const tip of document.querySelectorAll('.leaflet-popup-tip-container'))
-		tip.style.visibility = smallSize ? 'hidden' : 'visible';
+		.openOn(map)
+		.setTip(!smallSize);		// hide popup "arrow" on small screens
 }
 
 function updateRadius(radius, fit) {
@@ -453,6 +425,18 @@ function showCurrentPosition() {
 			levelMap.closePopup();
 			currentPos = pos.coords;
 			showLevelInfo();		// moves circles and also centers map
+		},
+		function(err) {
+			Browser.log("cannot get location", err);
+		}
+	);
+}
+
+// centers the fixed-location map on the user's real position (it doesn't change the fixed location)
+function showCurrentPositionFixed() {
+	navigator.geolocation.getCurrentPosition(
+		function(pos) {
+			fixedPosMap.setView([pos.coords.latitude, pos.coords.longitude], 15);
 		},
 		function(err) {
 			Browser.log("cannot get location", err);

@@ -1,10 +1,9 @@
 
 const Tour = require('./tour');
-const L = require('leaflet');
-require('leaflet.locatecontrol');
 
 const Browser = require('../common/browser');
 const MapLayers = require('./map');
+const { GeoMap, Circle, Marker } = require('./minimap');
 const { byId, initPanel } = require('./ui');
 
 Browser.inDemo = true;		// used in content.js
@@ -16,24 +15,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 	initPanel();
 
 	// setup map
-	demoMap = new L.map('demoMap')
+	demoMap = new GeoMap('demoMap')
 		.on('click', function(e){
 			if(intro) intro.exit();
 		})
 		.setView([0,0], 2);
 	await MapLayers.addBaseLayer(demoMap);
 
-	// extend the Locate control and override the "start" method, so that it sets the marker to the user's location
-	// see https://github.com/domoritz/leaflet-locatecontrol
-	//
-	var myLocate = L.Control.Locate.extend({
-	   start: showCurrentPosition
-	});
-	new myLocate({
-			icon: 'icon-location',				// use our own icon to avoid loading
-			iconLoading: 'icon-location',		// font awesome
-		})
-	.addTo(demoMap);
+	// button that asks the browser for the user's location
+	demoMap.addButton('gm-locate', 'Show my location', showCurrentPosition);
 
 	byId('demo-link').addEventListener('click', function(e) {
 		e.preventDefault();
@@ -64,10 +54,10 @@ async function drawPosition(pos) {
 	var acc = pos.coords.accuracy;
 
 	if(!demoMap.marker) {
-		demoMap.marker = new L.marker(latlng)
+		demoMap.marker = new Marker(latlng)
 			.addTo(demoMap);
 
-		demoMap.accuracy = new L.Circle(latlng, acc, {
+		demoMap.accuracy = new Circle(latlng, acc, {
 				color: '#136AEC',
 				fillColor: '#136AEC',
 				fillOpacity: 0.15,
@@ -106,7 +96,7 @@ function startDemo() {
 			],
 			className: 'tour-step1',
 		}, {
-			element: ".leaflet-control-locate",
+			element: ".gm-locate",
 			highlight: true,
 			content: () => [
 				['The demo asks the browser for your location when you press the ',

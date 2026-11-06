@@ -32,7 +32,7 @@ build-opera: build/opera/manifest.json
 build-firefox: build/firefox/manifest.json
 build-edge: build/edge/manifest.json
 
-COMMON_MODULES = -x ./src/js/common/browser_base.js -x ./src/js/common/browser.js -x ./src/js/common/util.js -x ./src/js/common/post-rpc.js -x ./src/js/common/laplace.js -x leaflet -x leaflet.locatecontrol
+COMMON_MODULES = -x ./src/js/common/browser_base.js -x ./src/js/common/browser.js -x ./src/js/common/util.js -x ./src/js/common/post-rpc.js -x ./src/js/common/laplace.js
 
 MV3_TARGETS = chrome edge opera
 BUILD_NAME = $(notdir $(patsubst %/,%,$(dir $@)))
@@ -47,7 +47,6 @@ build/%/manifest.json: $(call find, src, *) package.json package-lock.json Makef
 
 	# bundles with common modules
 	npx browserify -r ./src/js/common/browser_base.js -r ./src/js/common/browser.js -r ./src/js/common/util.js -r ./src/js/common/post-rpc.js -r ./src/js/common/laplace.js  > $(BUILD_DIR)/js/common.js
-	npx browserify -r leaflet -r leaflet.locatecontrol ./src/js/gui/load-gui.js   > $(BUILD_DIR)/js/common-gui.js
 
 	# entry points
 	npx browserify $(COMMON_MODULES) ./src/js/main.js            > $(BUILD_DIR)/js/main.js
@@ -61,7 +60,6 @@ build/%/manifest.json: $(call find, src, *) package.json package-lock.json Makef
 	if [ "$(filter $(BUILD_NAME), $(MV3_TARGETS))" ]; then npx browserify ./src/js/main.js > $(BUILD_DIR)/js/service-worker.js; fi
 
 	# copy module css/images
-	cp -r node_modules/leaflet/dist/images                 node_modules/leaflet/dist/leaflet.css                                 $(BUILD_DIR)/css/
 
 	cpp -P -Dis_$(BUILD_NAME) $(MV3_FLAG) src/manifest.json | sed '/^[[:space:]]*\/\//d' > $(BUILD_DIR)/manifest.json
 	sed 's/%BUILD%/$(BUILD_NAME)/' $(BUILD_DIR)/js/common.js > $(BUILD_DIR)/js/common.js.tmp && mv $(BUILD_DIR)/js/common.js.tmp $(BUILD_DIR)/js/common.js

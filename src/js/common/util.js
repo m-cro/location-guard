@@ -42,7 +42,7 @@ var Util = {
 			!url.includes('{z}') || !url.includes('{x}') || !url.includes('{y}'))
 			return null;
 
-		// Replace Leaflet placeholders for URL parsing. Reject the public OSM
+		// Replace tile placeholders for URL parsing. Reject the public OSM
 		// tile hosts, including subdomains, because extension requests cannot
 		// reliably provide the identifying headers required by their policy.
 		var parsed;
@@ -69,15 +69,8 @@ var Util = {
 			attributionUrl = parsedAttributionUrl.href;
 		}
 
-		// Leaflet treats attribution as HTML. Escape it so stored text cannot
-		// inject markup into the extension page.
-		function escapeHtml(value) {
-			return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-		}
-		attribution = escapeHtml(attribution);
-		if(attributionUrl)
-			attribution = '<a href="' + escapeHtml(attributionUrl) + '" target="_blank" rel="noopener noreferrer">' + attribution + '</a>';
-		return { url: url, info: { attribution: attribution } };
+		// The attribution is shown as plain text (never as HTML), with an optional https link.
+		return { url: url, attribution: attribution, attributionUrl: attributionUrl };
 	},
 
 	isValidLatLng: function(latitude, longitude) {
