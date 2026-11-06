@@ -1,0 +1,282 @@
+/* Small self-contained UI stylesheet (replaces jQuery Mobile). */
+
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+}
+body {
+	font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+	font-size: 16px;
+	color: #333;
+	background: #fff;
+}
+a { color: #38c; }
+h3 { margin: 1em 0 .5em; }
+
+[hidden] { display: none !important; }
+
+/* ---- header ---- */
+.header {
+	position: absolute;
+	top: 0; left: 0; right: 0;
+	height: 44px;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	background: #e9e9e9;
+	border-bottom: 1px solid #ddd;
+}
+.header h1 {
+	flex: 1;
+	margin: 0 44px 0 0;		/* balances the menu button, keeps the title centered */
+	font-size: 16px;
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.header.no-menu h1 { margin: 0; }
+.menu-btn {
+	width: 44px;
+	height: 44px;
+	border: 0;
+	padding: 0;
+	background: transparent url(../images/ui/bars-black.svg) no-repeat center / 18px;
+	cursor: pointer;
+}
+
+/* ---- pages ---- */
+.page {
+	position: absolute;
+	top: 0; bottom: 0; left: 0; right: 0;
+	display: none;
+	background: #fff;
+}
+.page.active { display: block; }
+
+.content {
+	position: absolute;
+	top: 44px; bottom: 0; left: 0; right: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 1em;
+	box-sizing: border-box;
+	overflow-y: auto;
+}
+.content.no-space { padding: 0; }
+
+/* the faq scrolls as a whole page (see note in faq.html) */
+.page.scroll {
+	position: relative;
+	height: auto;
+	min-height: 100%;
+}
+.page.scroll .content {
+	position: static;
+	padding-top: 44px;
+	overflow: visible;
+}
+
+/* ---- side menu ---- */
+#left-panel {
+	position: fixed;
+	top: 0; bottom: 0; left: 0;
+	width: 17em;
+	z-index: 1001;
+	background: #f9f9f9;
+	border-right: 1px solid #ddd;
+	box-sizing: border-box;
+	transform: translateX(-100%);
+	visibility: hidden;
+	transition: transform .2s, visibility 0s .2s;
+	overflow-y: auto;
+}
+#left-panel.open {
+	transform: none;
+	visibility: visible;
+	transition: transform .2s;
+	box-shadow: 2px 0 2px rgba(0,0,0,.15);
+}
+#left-panel ul { list-style: none; margin: 0; padding: 0; }
+#left-panel li { border-bottom: 1px solid #ddd; }
+#left-panel li a {
+	display: block;
+	padding: .75em 1em .75em 2.6em;
+	color: #333;
+	text-decoration: none;
+	font-weight: bold;
+	background: no-repeat 1em center / 18px;
+	cursor: pointer;
+}
+#left-panel li a:hover { background-color: #eee; }
+#left-panel li.menu-title {
+	padding: .75em 1em;
+	background: #4a4a4a;
+	color: #fff;
+	font-weight: bold;
+}
+.panel-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	background: rgba(0,0,0,.3);
+}
+
+.icon-gear       { background-image: url(../images/ui/gear-black.svg) !important; }
+.icon-eye        { background-image: url(../images/ui/eye-black.svg) !important; }
+.icon-location   { background-image: url(../images/ui/location-black.svg) !important; }
+.icon-info       { background-image: url(../images/ui/info-black.svg) !important; }
+.icon-navigation { background-image: url(../images/ui/navigation-black.svg) !important; }
+.icon-carat-r    { background-image: url(../images/ui/carat-r-black.svg) !important; }
+.icon-carat-d    { background-image: url(../images/ui/carat-d-black.svg) !important; }
+
+/* ---- buttons / form controls ---- */
+.btn {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	margin: .5em 0;
+	padding: .7em 1em;
+	font: inherit;
+	font-weight: bold;
+	text-align: center;
+	color: #333;
+	background: #f6f6f6;
+	border: 1px solid #ddd;
+	border-radius: .3125em;
+	cursor: pointer;
+}
+.btn:hover { background: #ededed; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.group {
+	display: flex;
+	flex-direction: column;
+	margin: .5em 0;
+}
+.group > * {
+	margin: 0 0 -1px 0 !important;
+	border-radius: 0 !important;
+}
+.group > :first-child { border-radius: .3125em .3125em 0 0 !important; }
+.group > :last-child  { border-radius: 0 0 .3125em .3125em !important; margin-bottom: 0 !important; }
+.group > label {
+	display: block;
+	position: relative;
+	padding: .7em 1em .7em 2.6em;
+	font-weight: bold;
+	background: #f6f6f6;
+	border: 1px solid #ddd;
+	cursor: pointer;
+}
+.group > label > input[type=checkbox],
+.group > label > input[type=radio] {
+	position: absolute;
+	left: 1em;
+	top: 1em;
+	margin: 0;
+}
+.group > .fixed-coordinates { border: 1px solid #ddd; background: #fff; padding: .5em 1em; }
+
+select, input[type=text], input[type=url], input[type=number] {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	margin: .3em 0 .7em;
+	padding: .55em .6em;
+	font: inherit;
+	color: #333;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: .3125em;
+}
+select { background: #f6f6f6; font-weight: bold; margin-bottom: 1em; }
+
+/* ---- level tabs ---- */
+.tabs { list-style: none; margin: 0; padding: 0; display: flex; }
+.tabs li { flex: 1; }
+.tabs a {
+	display: block;
+	padding: .7em 0;
+	text-align: center;
+	font-weight: bold;
+	color: #333;
+	text-decoration: none;
+	background: #f6f6f6;
+	border: 1px solid #ddd;
+	margin-left: -1px;
+	cursor: pointer;
+}
+.tabs a.active { background: #38c; border-color: #38c; color: #fff; }
+
+.bar {
+	padding: .4em 1em;
+	background: #e9e9e9;
+	border-bottom: 1px solid #ddd;
+}
+
+/* ---- sliders ---- */
+input[type=range].slider {
+	-webkit-appearance: none;
+	appearance: none;
+	display: block;
+	width: 100%;
+	height: 10px;
+	margin: .8em 0;
+	padding: 0;
+	box-sizing: border-box;
+	background: #e9e9e9;
+	border: 1px solid #ddd;
+	border-radius: .3125em;
+	box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+	cursor: pointer;
+}
+input[type=range].slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 24px; height: 24px;
+	background: #f6f6f6;
+	border: 1px solid #ddd;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+input[type=range].slider::-moz-range-thumb {
+	width: 22px; height: 22px;
+	background: #f6f6f6;
+	border: 1px solid #ddd;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+
+/* ---- faq accordion ---- */
+details { border-bottom: 1px solid #ddd; }
+details > summary {
+	list-style: none;
+	padding: .75em 1em .75em 2.6em;
+	font-weight: bold;
+	background: #f6f6f6 url(../images/ui/carat-r-black.svg) no-repeat 1em center / 18px;
+	cursor: pointer;
+}
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary { background-image: url(../images/ui/carat-d-black.svg); }
+details > :not(summary) { margin-left: 1em; margin-right: 1em; }
+
+/* ---- inline location icon (replaces jqm icon buttons) ---- */
+.popup-location-btn {
+	display: inline-block;
+	vertical-align: middle;
+	width: 1.6em;
+	height: 1.6em;
+	margin: 0 .3em;
+	box-sizing: border-box;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background: #f6f6f6 url(../images/ui/location-black.svg) no-repeat center / 60%;
+}
+/* leaflet locate control icon */
+.leaflet-control-locate .icon-location {
+	display: block;
+	width: 100%;
+	height: 100%;
+	background: url(../images/ui/location-black.svg) no-repeat center / 60%;
+}

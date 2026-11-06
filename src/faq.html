@@ -13,24 +13,23 @@ issue.
 
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 
-	<link rel="stylesheet" href="css/jquery.mobile-1.4.5.min.css"/>
+	<link rel="stylesheet" href="css/ui.css">
 	<link rel="stylesheet" href="css/options.css">
 
 	<script src="js/common.js"></script>
-	<script src="js/common-gui.js"></script>
 	<script src="js/gui/faq.js"></script>
 </head>
-<body class="ui-alt-icon ui-nodisc-icon">
-	<div data-role="page" id="faq" data-title="Location Guard" class="page">
-		<div data-role="header">
-			<a href="#left-panel" class="ui-btn ui-btn-icon-notext ui-icon-bars"></a>
+<body>
+	<div id="faq" class="page active scroll">
+		<header class="header">
+			<button type="button" class="menu-btn" aria-label="Menu"></button>
 			<h1>Frequently Asked Questions</h1>
-		</div>
+		</header>
 
-		<div role="main" class="ui-content no-vert-space">
-			<div data-role="collapsibleset" data-inset="false" data-collapsed-icon="carat-r" data-expanded-icon="carat-d" class="no-space">
-				<div id="faq-general" data-role="collapsible">
-					<h3>What is Location Guard?</h3>
+		<main class="content no-vert-space">
+			<div class="no-space">
+				<details id="faq-general">
+					<summary>What is Location Guard?</summary>
 
 					<p>Websites can ask the browser for your location (via JavaScript). When they do so, the browser
 					first asks your permission, and if you accept, it detects your location (typically by transmitting a
@@ -50,9 +49,9 @@ issue.
 					When the website asks for your location you will see the <span id="lgIcon"></span> icon,
 					which also provides configuration options.
 					</p>
-				</div>
-				<div id="faq-privacy" data-role="collapsible">
-					<h3>What kind of privacy does Location Guard provide?</h3>
+				</details>
+				<details id="faq-privacy">
+					<summary>What kind of privacy does Location Guard provide?</summary>
 
 					<p>Location Guard provides privacy within a certain <i>protection area</i> by ensuring that all
 					locations within this area look <i>plausible</i> for being the real one. This is achieved by adding
@@ -65,9 +64,9 @@ issue.
 					containing only a small island, it will be easy to infer that the real location is on the island. In
 					scenarios like this you should choose a higher privacy level or deny disclosing your location at
 					all.
-				</div>
-				<div id="faq-levels" data-role="collapsible">
-					<h3>What are "privacy levels"?</h3>
+				</details>
+				<details id="faq-levels">
+					<summary>What are "privacy levels"?</summary>
 
 					<p>The privacy level determines the amount of noise added to your real location. A higher level adds
 					more noise, so the fake location will be further away from the real one. This offers protection
@@ -85,9 +84,9 @@ issue.
 					provide?</a>"). The blue circle is the <i>accuracy</i>: the fake location will be inside this circle
 					with high probability (note that the noise is random). Use the slider to adapt the two areas to your
 					needs.</p>
-				</div>
-				<div id="faq-fixed" data-role="collapsible">
-					<h3>What is a "fixed location"?</h3>
+				</details>
+				<details id="faq-fixed">
+					<summary>What is a "fixed location"?</summary>
 
 					<p>The privacy level can be set to "Use fixed location". In this case Location Guard always reports to the website
 					a predefined fixed location that never changes (instead of generating a fake location by adding
@@ -101,9 +100,9 @@ issue.
 					However, it has the side effect that the <i>permission dialog is not displayed at all</i>.
 					This behaviour is usually acceptable when the fixed location is dummy, but it can
 					be modified if you wish.</p>
-				</div>
-				<div id="faq-ip" data-role="collapsible">
-					<h3>Why some websites detect my location although I use Location Guard?</h3>
+				</details>
+				<details id="faq-ip">
+					<summary>Why some websites detect my location although I use Location Guard?</summary>
 
 					<p>Some websites
 					detect your location based on your
@@ -121,9 +120,9 @@ issue.
 					<p>To hide your IP address you need to use some anonymous communication system such as
 					<a href="https://www.torproject.org/" target="_blank">Tor</a>. Note, however, that even if your IP address is
 					hidden, your browser can still reveal your location through JavaScript, so you need to also use Location Guard.</p>
-				</div>
-				<div id="faq-info" data-role="collapsible">
-					<h3>How Location Guard uses my information?</h3>
+				</details>
+				<details id="faq-info">
+					<summary>How Location Guard uses my information?</summary>
 
 					<p>Location Guard takes your privacy seriously! First, the extension itself has no "special
 					permission" to access your location, it can obtain it only when a website asks for it and only if
@@ -142,9 +141,9 @@ issue.
 					would be centered around the real one. The cache period can be configured from the <a
 					href="options.html#levels">Privacy Levels tab</a> and the cache can be deleted from
 					the <a href="options.html#options">Options tab</a>.
-				</div>
-				<div id="faq-technology" data-role="collapsible">
-					<h3>What is the technology behind Location Guard?</h3>
+				</details>
+				<details id="faq-technology">
+					<summary>What is the technology behind Location Guard?</summary>
 
 					<p>Location Guard is a product of research carried out at the Ecole Polytechnique of Paris,
 					CNRS and Inria. It is based on work by <a href="https://www.lix.polytechnique.fr/~mandres" target="_blank">Miguel Andrés</a>,
@@ -164,20 +163,20 @@ issue.
 					M. Andres, N. Bordenabe, K. Chatzikokolakis and C. Palamidessi.<br>
 					<i>Proc. of the ACM Conference on Computer and Communications Security (CCS) '13</i>, ACM, pp. 901-914, 2013.
 					[<a href="https://arxiv.org/abs/1212.1984" target="_blank">report version</a>]</p>
-				</div>
+				</details>
 			</div>
-		</div>
+		</main>
 	</div><!-- /page -->
 
-	<div data-role="panel" id="left-panel" data-position="left" data-display="overlay" data-theme="a">
-		<ul data-role="listview">
-			<li data-icon="none" class="menu-title" data-theme="b">Location Guard</li>
-			<li data-icon="gear"><a href="options.html#options">Options</a></li>
-			<li data-icon="eye"><a href="options.html#levels">Privacy Levels</a></li>
-			<li data-icon="location"><a href="options.html#fixedPos">Fixed Location</a></li>
-			<li data-icon="info"><a href="#general">FAQ</a></li>
-			<li data-icon="navigation"><a href="demo.html">Demo</a></li>
+	<nav id="left-panel">
+		<ul>
+			<li class="menu-title">Location Guard</li>
+			<li><a class="icon-gear" href="options.html#options">Options</a></li>
+			<li><a class="icon-eye" href="options.html#levels">Privacy Levels</a></li>
+			<li><a class="icon-location" href="options.html#fixedPos">Fixed Location</a></li>
+			<li><a class="icon-info" href="#general">FAQ</a></li>
+			<li><a class="icon-navigation" href="demo.html">Demo</a></li>
 		</ul>
-	</div><!-- /panel -->
+	</nav><!-- /panel -->
 </body>
 </html>

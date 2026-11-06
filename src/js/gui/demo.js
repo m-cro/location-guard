@@ -1,33 +1,24 @@
 
-const $ = require('jquery');
 const Tour = require('./tour');
 const L = require('leaflet');
 require('leaflet.locatecontrol');
 
 const Browser = require('../common/browser');
 const MapLayers = require('./map');
+const { byId, initPanel } = require('./ui');
 
 Browser.inDemo = true;		// used in content.js
 var intro, outcome = '';
 var demoMap;
 var showPressed, geoDone;
 
-$.mobile.ajaxEnabled = false;
-$.mobile.linkBindingEnabled = false;
-
-$(document).ready(async function() {
-	$("#left-panel").panel().enhanceWithin();			// initialize panel
-
-	// open panel on swipe
-	$(document).on("swiperight", function(e) {
-		if($("#left-panel").css("visibility") !== "visible" )		// check if already open (manually or due to large screen)
-			$("#left-panel").panel("open");
-	});
+document.addEventListener('DOMContentLoaded', async function() {
+	initPanel();
 
 	// setup map
 	demoMap = new L.map('demoMap')
 		.on('click', function(e){
-			intro.exit();
+			if(intro) intro.exit();
 		})
 		.setView([0,0], 2);
 	await MapLayers.addBaseLayer(demoMap);
@@ -39,16 +30,15 @@ $(document).ready(async function() {
 	   start: showCurrentPosition
 	});
 	new myLocate({
-			icon: 'icon-trans ui-btn-icon-notext ui-icon-location',				// use jqm's icons to avoid loading
-			iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',		// font awesome
+			icon: 'icon-location',				// use our own icon to avoid loading
+			iconLoading: 'icon-location',		// font awesome
 		})
 	.addTo(demoMap);
 
-	$("#demo-link").on("click", function() {
-		if(!intro.active)
+	byId('demo-link').addEventListener('click', function(e) {
+		e.preventDefault();
+		if(intro && !intro.active)
 			intro.start();
-
-		$("#left-panel").panel("close");
 	});
 
 	// ready to go
@@ -120,7 +110,7 @@ function startDemo() {
 			highlight: true,
 			content: () => [
 				['The demo asks the browser for your location when you press the ',
-					{cls: 'popup-location-btn ui-btn ui-btn-inline ui-icon-location ui-btn-icon-notext'},
+					{cls: 'popup-location-btn'},
 					' button.'],
 				['Press it!'],
 			],

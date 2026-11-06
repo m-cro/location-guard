@@ -1,4 +1,5 @@
 const Browser = require('../common/browser');
+const { byId, initPanel } = require('./ui');
 
 Browser.log("faq loading");
 
@@ -8,39 +9,29 @@ Browser.rpc.register('getState', function(tabId) {
 	return null;
 });
 
-const $ = require('jquery');
-$.mobile.ajaxEnabled = false;
-$.mobile.linkBindingEnabled = false;
+const sections = () => Array.from(document.querySelectorAll('#faq details'));
 
 function openHash() {
-	$("#faq-" + location.hash.substr(1)).collapsible("expand");
+	const target = byId("faq-" + location.hash.substr(1));
+	if(target) target.open = true;
 }
 
-$(document).ready(function() {
-	$("#left-panel").panel().enhanceWithin();			// initialize panel
+document.addEventListener('DOMContentLoaded', function() {
+	initPanel();
 
-	// open panel on swipe
-	$(document).on("swiperight", function(e) {
-		if($("#left-panel").css("visibility") !== "visible" )		// check if already open (manually or due to large screen)
-			$("#left-panel").panel("open");
-	});
+	// accordion: opening a question closes the others, and puts its name in the url
+	for(const d of sections()) {
+		d.addEventListener('toggle', function() {
+			if(!d.open) return;
+			for(const other of sections())
+				if(other !== d) other.open = false;
+			location.hash = "#" + d.id.substr(4);
+		});
+	}
 
-	// animate collapsibles in the faq
-	$("#faq [data-role='collapsible']").collapsible({
-		collapse: function( event, ui ) {
-			$(this).children().next().slideUp(150);
-		},
-		expand: function( event, ui ) {
-			location.hash = "#" + $(this).attr("id").substr(4);
+	byId('lgIcon').classList.add(Browser.capabilities.permanentIcon() ? 'lg-icon-browseraction' : 'lg-icon-pageaction');
 
-			$(this).children().next().hide();
-			$(this).children().next().slideDown(150);
-		}
-	});
-
-	$("#lgIcon").addClass(Browser.capabilities.permanentIcon() ? 'lg-icon-browseraction' : 'lg-icon-pageaction');
-
-	$(window).on("hashchange", openHash);
+	window.addEventListener("hashchange", openHash);
 
 	if(location.hash)
 		openHash();

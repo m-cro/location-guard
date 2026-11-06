@@ -1,7 +1,4 @@
 
-const $ = require('jquery');
-require('sglide');		// extends jquery
-
 const L = require('leaflet');
 require('leaflet.locatecontrol');
 
@@ -9,6 +6,7 @@ const Browser = require('../common/browser');
 const PlanarLaplace = require('../common/laplace');
 const Util = require('../common/util');
 const MapLayers = require('./map');
+const { byId, h, initPanel } = require('./ui');
 
 var levelMap, fixedPosMap;
 var epsilon;
@@ -25,40 +23,30 @@ var currentPos = {
 Browser.init('options');
 
 
-// slider wrapper class, cause sGlide interface sucks
+// slider wrapper class around <input type=range>:
+// opt.slide is called while dragging, opt.change when the user releases it
 function Slider(opt) {
 	this.opt = opt;
 	this.value = opt.min;
 
-	var obj = this;
-	$("#"+opt.id).sGlide({
-		totalRange: [opt.min, opt.max],
-		drag: function(e) {
-			var value = Math.round(e.custom);
-			value -= value % opt.step;
-			opt.slide(value);
-		},
-		drop: function(e) {
-			obj.value = Math.round(e.custom);
-			obj.value -= obj.value % opt.step;
-			opt.change(obj.value);
-		}
-	});
+	const input = byId(opt.id);
+	const read = () => this.value = Number(input.value);
+	input.addEventListener('input',  () => opt.slide(read()));
+	input.addEventListener('change', () => opt.change(read()));
 
 	this.set = function(value) {
 		this.value = value;
-		var pct = 100 * (value - opt.min) / (opt.max - opt.min);
-		$("#"+opt.id).sGlide("startAt", pct);
+		input.value = value;
 	}
 }
 
 async function saveOptions() {
 	const st = await Browser.storage.get();
-	st.defaultLevel = $('#defaultLevel').val();
-	st.paused = $("#paused").prop('checked');
-	st.hideIcon = $("#hideIcon").prop('checked');
+	st.defaultLevel = byId('defaultLevel').value;
+	st.paused = byId('paused').checked;
+	st.hideIcon = byId('hideIcon').checked;
 
-	var updateAccuracy = $("#updateAccuracy").prop('checked');
+	var updateAccuracy = byId('updateAccuracy').checked;
 	if(st.updateAccuracy != updateAccuracy) {
 		// update accuracy of cached positions to reflect the change
 		for(var level in st.cachedPos) {
@@ -78,20 +66,20 @@ async function saveOptions() {
 
 async function saveFixedPosNoAPI() {
 	const st = await Browser.storage.get();
-	st.fixedPosNoAPI = $("#fixedPosNoAPI").prop('checked');
+	st.fixedPosNoAPI = byId('fixedPosNoAPI').checked;
 
 	await Browser.storage.set(st);
 }
 
 async function saveMapTiles() {
 	const st = await Browser.storage.get();
-	const enabled = $('#mapTilesEnabled').prop('checked');
-	const url = $('#mapTilesUrl').val().trim();
-	const attribution = $('#mapTilesAttribution').val().trim();
-	const attributionUrl = $('#mapTilesAttributionUrl').val().trim();
+	const enabled = byId('mapTilesEnabled').checked;
+	const url = byId('mapTilesUrl').value.trim();
+	const attribution = byId('mapTilesAttribution').value.trim();
+	const attributionUrl = byId('mapTilesAttributionUrl').value.trim();
 	if(enabled && !Util.mapTileConfig({ mapTilesEnabled: true, mapTilesUrl: url, mapTilesAttribution: attribution, mapTilesAttributionUrl: attributionUrl })) {
-		$('#mapTilesError').text('Enter a valid HTTPS tile URL with {z}, {x}, and {y}, attribution text, and an optional HTTPS attribution link. Public OpenStreetMap tile hosts are not supported here.');
-		$('#mapTilesEnabled').prop('checked', false).checkboxradio('refresh');
+		byId('mapTilesError').textContent = 'Enter a valid HTTPS tile URL with {z}, {x}, and {y}, attribution text, and an optional HTTPS attribution link. Public OpenStreetMap tile hosts are not supported here.';
+		byId('mapTilesEnabled').checked = false;
 		st.mapTilesEnabled = false;
 		st.mapTilesUrl = url;
 		st.mapTilesAttribution = attribution;
@@ -100,7 +88,7 @@ async function saveMapTiles() {
 		await refreshMapLayers();
 		return;
 	}
-	$('#mapTilesError').text('');
+	byId('mapTilesError').textContent = '';
 	st.mapTilesEnabled = enabled;
 	st.mapTilesUrl = url;
 	st.mapTilesAttribution = attribution;
@@ -161,20 +149,24 @@ async function initLevelMap() {
 		.on('drag', handleChangePosEvent);
 
 	// popup
-	var popupHtml =
-		'<div class="map-popup">' +
-			'<p><b>Protection area (red)</b> and <b>accuracy (blue)</b> around some (hypothetical) location.</p>' +
-			'<p>Click on the map or drag the marker to change the location. Click on' +
-			'<a href="#" id="levelMapCurrentPos" class="popup-location-btn ui-btn ui-btn-inline ui-icon-location ui-btn-icon-notext"></a>' +
-			'to show your current location.</p>' +
-		'</div>';
+	var locateLink = h('a', { href: '#', id: 'levelMapCurrentPos', class: 'popup-location-btn' });
+	locateLink.addEventListener('click', function(e) {
+		e.preventDefault();
+		showCurrentPosition();
+	});
+	var popupContent = h('div', { class: 'map-popup' },
+		h('p', {}, h('b', {}, 'Protection area (red)'), ' and ', h('b', {}, 'accuracy (blue)'),
+			' around some (hypothetical) location.'),
+		h('p', {}, 'Click on the map or drag the marker to change the location. Click on ',
+			locateLink, ' to show your current location.')
+	);
 
 	levelMap.popup = L.popup({
 			autoPan: false,
 			closeOnClick: false,		// we'll close it ourselves
-			maxWidth: Math.min($("#levelMap").width() - 50, 300),
+			maxWidth: Math.min(byId('levelMap').clientWidth - 50, 300),
 		})
-		.setContent(popupHtml);
+		.setContent(popupContent);
 
 	// circles (accuracy circle first to be on bottom)
 	levelMap.accuracy = new L.Circle(latlng, 1500, {
@@ -200,8 +192,8 @@ async function initLevelMap() {
 	   start: showCurrentPosition
 	});
 	new myLocate({
-			icon: 'icon-trans ui-btn-icon-notext ui-icon-location',				// use jqm's icons to avoid loading
-			iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',		// font awesome
+			icon: 'icon-location',				// use our own icon to avoid loading
+			iconLoading: 'icon-location',		// font awesome
 		})
 	.addTo(levelMap);
 
@@ -239,18 +231,17 @@ async function initFixedPosMap() {
 		});
 
 	// popup
-	var popupHtml =
-		'<div class="map-popup">' +
-			'<p>This is the location reported when the privacy level is set to <b>"Use fixed location"</b>.</p>' +
-			'<p>Click on the map or drag the marker to set a new fixed location.</p>' +
-		'</div>';
+	var popupContent = h('div', { class: 'map-popup' },
+		h('p', {}, 'This is the location reported when the privacy level is set to ', h('b', {}, '"Use fixed location"'), '.'),
+		h('p', {}, 'Click on the map or drag the marker to set a new fixed location.')
+	);
 
 	fixedPosMap.popup = L.popup({
 			autoPan: false,
 			closeOnClick: false,		// we'll close it ourselves
-			maxWidth: Math.min($("#fixedPosMap").width() - 50, 300),
+			maxWidth: Math.min(byId('fixedPosMap').clientWidth - 50, 300),
 		})
-		.setContent(popupHtml);
+		.setContent(popupContent);
 
 	showPopup(fixedPosMap);
 
@@ -258,8 +249,8 @@ async function initFixedPosMap() {
 	L.control.locate({
 		drawCircle: false,
 		follow: false,
-		icon: 'icon-trans ui-btn-icon-notext ui-icon-location',				// use jqm's icons to avoid loading
-		iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',		// font awesome
+		icon: 'icon-location',				// use our own icon to avoid loading
+		iconLoading: 'icon-location',		// font awesome
 	}).addTo(fixedPosMap);
 
 }
@@ -269,8 +260,8 @@ async function saveFixedPos(latlng) {
 	var wrapped = latlng.wrap();			// force within normal range
 	if(!Util.isValidLatLng(wrapped.lat, wrapped.lng)) return false;
 	st.fixedPos = { latitude: wrapped.lat, longitude: wrapped.lng };
-	$('#fixedLatitude').val(wrapped.lat.toFixed(6));
-	$('#fixedLongitude').val(wrapped.lng.toFixed(6));
+	byId('fixedLatitude').value = wrapped.lat.toFixed(6);
+	byId('fixedLongitude').value = wrapped.lng.toFixed(6);
 
 	fixedPosMap.marker.setLatLng(wrapped);
 
@@ -280,15 +271,15 @@ async function saveFixedPos(latlng) {
 }
 
 async function saveFixedCoordinates() {
-	const latitudeText = $('#fixedLatitude').val().trim();
-	const longitudeText = $('#fixedLongitude').val().trim();
+	const latitudeText = byId('fixedLatitude').value.trim();
+	const longitudeText = byId('fixedLongitude').value.trim();
 	const latitude = Number(latitudeText);
 	const longitude = Number(longitudeText);
 	if(!latitudeText || !longitudeText || !Util.isValidLatLng(latitude, longitude)) {
-		$('#fixedCoordinatesError').text('Enter a latitude from -90 to 90 and longitude from -180 to 180.');
+		byId('fixedCoordinatesError').textContent = 'Enter a latitude from -90 to 90 and longitude from -180 to 180.';
 		return;
 	}
-	$('#fixedCoordinatesError').text('');
+	byId('fixedCoordinatesError').textContent = '';
 	await saveFixedPos(L.latLng(latitude, longitude));
 	fixedPosMap.setView([latitude, longitude], 14);
 }
@@ -324,7 +315,7 @@ function moveCircles() {
 }
 
 function showPopup(map) {
-	var smallSize = $(map._container).width() < 500 || $(map._container).height() < 450;
+	var smallSize = map._container.clientWidth < 500 || map._container.clientHeight < 450;
 
 	// on small screens we center the popup at the bottom of the map
 	// on large screens we open at the marker
@@ -346,7 +337,8 @@ function showPopup(map) {
 		.openOn(map);
 
 	// hide popup "arrow" on small screens
-	$(".leaflet-popup-tip-container").css({ visibility: (smallSize ? "hidden" : "visible") });
+	for(const tip of document.querySelectorAll('.leaflet-popup-tip-container'))
+		tip.style.visibility = smallSize ? 'hidden' : 'visible';
 }
 
 function updateRadius(radius, fit) {
@@ -367,92 +359,92 @@ function updateRadius(radius, fit) {
 	if(first_view)
 		showPopup(levelMap);
 
-	$("#radius").text(radius);
-	$("#accuracy").text(acc);
+	byId('radius').textContent = radius;
+	byId('accuracy').textContent = acc;
 }
 
 function updateCache(ct) {
 	// update cache time text
-	var h = ct-59
+	var hours = ct-59
 
-	$("#cacheTime").text(
+	byId('cacheTime').textContent = (
 		ct == 0 ? "don't cache" :
 		ct < 60 ? ct + " minute" + (ct > 1 ? "s" : "") :
-		h + " hour" + (h > 1 ? "s" : "")
+		hours + " hour" + (hours > 1 ? "s" : "")
 	);
 }
 
-function initPages() {
-	$.mobile.ajaxEnabled = false;
-	//$.mobile.hideUrlBar = false;
-	//$.mobile.defaultPageTransition = "none";
+const PAGES = ['options', 'levels', 'fixedPos'];
 
-	$(document).ready(function() {
-		$('#hideIcon').parent().toggle(!Browser.capabilities.permanentIcon());	// hiding the icon only works with page action (not browser action)
-	});
+// Very small page router: each page is a <div class="page">, selected by the url hash.
+function currentPage() {
+	var id = location.hash.substr(1);
+	return PAGES.includes(id) ? id : 'options';
+}
 
-	$(document).on("pagecontainershow", async function(e, ui) {
-		var page = ui.toPage[0].id;
+async function showPage() {
+	var page = currentPage();
+	for(const id of PAGES)
+		byId(id).classList.toggle('active', id == page);
 
-		if(inited[page]) {
-			// page already inited. only call invalidateSize on maps
-			if(page == "levels" && levelMap)   levelMap.invalidateSize();
-			if(page == "fixedPos" && fixedPosMap) fixedPosMap.invalidateSize();
-			return;
-		}
-		inited[page] = 'initializing';
+	if(inited[page]) {
+		// page already inited. only call invalidateSize on maps
+		if(page == "levels" && levelMap)   levelMap.invalidateSize();
+		if(page == "fixedPos" && fixedPosMap) fixedPosMap.invalidateSize();
+		return;
+	}
+	inited[page] = 'initializing';
 
-		// page initialization
-		//
-		if(page == "options") {
-			const st = await Browser.storage.get();
-			$('#defaultLevel').val(st.defaultLevel).selectmenu("refresh");
-			$('#paused').prop('checked', st.paused).checkboxradio("refresh");
-			$('#hideIcon').prop('checked', st.hideIcon).checkboxradio("refresh");
-			$('#updateAccuracy').prop('checked', st.updateAccuracy).checkboxradio("refresh");
-			$('#mapTilesEnabled').prop('checked', st.mapTilesEnabled === true).checkboxradio("refresh");
-			$('#mapTilesUrl').val(st.mapTilesUrl || '');
-			$('#mapTilesAttribution').val(st.mapTilesAttribution || '');
-			$('#mapTilesAttributionUrl').val(st.mapTilesAttributionUrl || '');
+	// page initialization
+	//
+	if(page == "options") {
+		const st = await Browser.storage.get();
+		byId('defaultLevel').value = st.defaultLevel;
+		byId('paused').checked = st.paused;
+		byId('hideIcon').checked = st.hideIcon;
+		byId('updateAccuracy').checked = st.updateAccuracy;
+		byId('mapTilesEnabled').checked = st.mapTilesEnabled === true;
+		byId('mapTilesUrl').value = st.mapTilesUrl || '';
+		byId('mapTilesAttribution').value = st.mapTilesAttribution || '';
+		byId('mapTilesAttributionUrl').value = st.mapTilesAttributionUrl || '';
 
-		} else if (page == "levels") {
-			const st = await Browser.storage.get();
-			epsilon = st.epsilon;
-			sliderRadius = new Slider({
-				id: "setRadius",
-				min: 40,
-				max: 3000,
-				step: 20,
-				slide: function(value) {
-					levelMap.closePopup();
-					updateRadius(value, false);
-				},
-				change: saveLevel,
-			});
-			sliderCacheTime = new Slider({
-				id: "setCacheTime",
-				min: 0,
-				max: 69,
-				step: 1,
-				slide: updateCache,
-				change: saveLevel,
-			});
+	} else if (page == "levels") {
+		const st = await Browser.storage.get();
+		epsilon = st.epsilon;
+		sliderRadius = new Slider({
+			id: "setRadius",
+			min: 40,
+			max: 3000,
+			step: 20,
+			slide: function(value) {
+				levelMap.closePopup();
+				updateRadius(value, false);
+			},
+			change: saveLevel,
+		});
+		sliderCacheTime = new Slider({
+			id: "setCacheTime",
+			min: 0,
+			max: 69,
+			step: 1,
+			slide: updateCache,
+			change: saveLevel,
+		});
 
-			await initLevelMap();
-			await showLevelInfo();
+		await initLevelMap();
+		await showLevelInfo();
 
-		} else if (page == "fixedPos") {
-			const st = await Browser.storage.get();
-			$('#fixedPosNoAPI').prop('checked', st.fixedPosNoAPI).checkboxradio("refresh");
-			const fixedPos = st.fixedPos && Util.isValidLatLng(st.fixedPos.latitude, st.fixedPos.longitude)
-				? st.fixedPos : { latitude: -4.448784, longitude: -171.24832 };
-			$('#fixedLatitude').val(fixedPos.latitude);
-			$('#fixedLongitude').val(fixedPos.longitude);
+	} else if (page == "fixedPos") {
+		const st = await Browser.storage.get();
+		byId('fixedPosNoAPI').checked = st.fixedPosNoAPI;
+		const fixedPos = st.fixedPos && Util.isValidLatLng(st.fixedPos.latitude, st.fixedPos.longitude)
+			? st.fixedPos : { latitude: -4.448784, longitude: -171.24832 };
+		byId('fixedLatitude').value = fixedPos.latitude;
+		byId('fixedLongitude').value = fixedPos.longitude;
 
-			await initFixedPosMap();
-		}
-		inited[page] = true;
-	});
+		await initFixedPosMap();
+	}
+	inited[page] = true;
 }
 
 function showCurrentPosition() {
@@ -483,42 +475,41 @@ async function deleteCache() {
 	window.alert('Location cache was deleted');
 }
 
-// set page events before "ready"
-//
-initPages();
+document.addEventListener('DOMContentLoaded', function() {
+	initPanel();
 
-$(document).ready(function() {
-	$("#left-panel").panel().enhanceWithin();			// initialize panel
+	// hiding the icon only works with page action (not browser action)
+	byId('hideIcon').closest('label').hidden = Browser.capabilities.permanentIcon();
 
-	// open panel on swipe
-	$(document).on("swiperight", function(e) {
-		if($("#left-panel").css("visibility") !== "visible" )		// check if already open (manually or due to large screen)
-			$("#left-panel").panel("open");
-	});
+	for(const id of ['defaultLevel', 'paused', 'hideIcon', 'updateAccuracy'])
+		byId(id).addEventListener('change', saveOptions);
+	byId('fixedPosNoAPI').addEventListener('change', saveFixedPosNoAPI);
+	for(const id of ['mapTilesEnabled', 'mapTilesUrl', 'mapTilesAttribution', 'mapTilesAttributionUrl'])
+		byId(id).addEventListener('change', saveMapTiles);
+	byId('saveFixedCoordinates').addEventListener('click', saveFixedCoordinates);
 
-	$("#defaultLevel, #paused, #hideIcon, #updateAccuracy").change(saveOptions);
-	$("#fixedPosNoAPI").change(saveFixedPosNoAPI);
-	$("#mapTilesEnabled, #mapTilesUrl, #mapTilesAttribution, #mapTilesAttributionUrl").change(saveMapTiles);
-	$("#saveFixedCoordinates").click(saveFixedCoordinates);
+	byId('restoreDefaults').addEventListener('click', restoreDefaults);
+	byId('deleteCache').addEventListener('click', deleteCache);
 
-	$("#restoreDefaults").click(restoreDefaults);
-	$("#deleteCache").click(deleteCache);
+	for(const a of document.querySelectorAll('#activeLevel a')) {
+		a.addEventListener('click', function(e) {
+			e.preventDefault();
+			levelMap.closePopup();
 
-	$("#activeLevel a").click(function(e) {
-		levelMap.closePopup();
+			for(const other of document.querySelectorAll('#activeLevel a'))
+				other.classList.toggle('active', other === a);
+			activeLevel = a.getAttribute('level');
+			showLevelInfo();
+		});
+	}
 
-		activeLevel = $(e.target).attr("level");
-		showLevelInfo();
-	});
+	for(const btn of document.querySelectorAll('.showFAQ'))
+		btn.addEventListener('click', () => { location.href = "faq.html#" + btn.getAttribute('faq'); });
+	for(const btn of document.querySelectorAll('.reportIssue'))
+		btn.addEventListener('click', () => window.open('https://github.com/chatziko/location-guard/issues', '_blank'));
 
-	$(".showFAQ").click(function(e) {
-		location.href = "faq.html#" + $(e.target).attr("faq");
-	});
-	$(".reportIssue").click(function(e) {
-		window.open('https://github.com/chatziko/location-guard/issues', '_blank');
-	});
-
-	$(document).on("click", "#levelMapCurrentPos", showCurrentPosition);	// this doesn't exist yet (it's inside the popup), so we set in document
+	window.addEventListener('hashchange', showPage);
+	showPage();
 });
 
 (async function() {

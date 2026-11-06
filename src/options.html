@@ -6,7 +6,7 @@
 
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 
-	<link rel="stylesheet" href="css/jquery.mobile-1.4.5.min.css">
+	<link rel="stylesheet" href="css/ui.css">
 	<link rel="stylesheet" href="css/leaflet.css">
 	<link rel="stylesheet" href="css/options.css">
 
@@ -14,14 +14,14 @@
 	<script src="js/common-gui.js"></script>
 	<script src="js/gui/options.js"></script>
 </head>
-<body class="ui-alt-icon ui-nodisc-icon">
-	<div data-role="page" id="options" data-title="Location Guard" class="page">
-		<div data-role="header">
-			<a href="#left-panel" class="ui-btn ui-btn-icon-notext ui-icon-bars"></a>
+<body>
+	<div id="options" class="page">
+		<header class="header">
+			<button type="button" class="menu-btn" aria-label="Menu"></button>
 			<h1>Options</h1>
-		</div>
+		</header>
 
-		<div role="main" class="ui-content">
+		<main class="content">
 			Default level:
 			<select id="defaultLevel">
 				<option value="fixed">Use fixed location</option>
@@ -30,18 +30,18 @@
 				<option value="low">Low</option>
 				<option value="real">Use real location</option>
 			</select>
-			<div data-role="controlgroup">
+			<div class="group">
 				<label><input id="paused" type="checkbox">Pause</label>
 				<label><input id="hideIcon" type="checkbox">Hide icon</label>
 				<label><input id="updateAccuracy" type="checkbox">Update accuracy<p class="small-font no-space">adapts the reported accuracy to the amount of added noise</p></label>
 			</div>
-			<div data-role="controlgroup">
-				<button class="ui-btn" id='deleteCache'>Delete fake location cache</button>
-				<button class="ui-btn" id='restoreDefaults'>Restore default options</button>
+			<div class="group">
+				<button class="btn" id='deleteCache'>Delete fake location cache</button>
+				<button class="btn" id='restoreDefaults'>Restore default options</button>
 			</div>
-			<div data-role="controlgroup">
-				<button class="ui-btn showFAQ" faq="general">What is Location Guard?</button>
-				<button class="ui-btn reportIssue" faq="general">Report an issue</button>
+			<div class="group">
+				<button class="btn showFAQ" faq="general">What is Location Guard?</button>
+				<button class="btn reportIssue" faq="general">Report an issue</button>
 			</div>
 			<div class="map-provider-settings">
 				<h3>Map tiles</h3>
@@ -55,75 +55,75 @@
 				<input id="mapTilesAttributionUrl" type="url" placeholder="https://provider.example/terms">
 				<p id="mapTilesError" class="small-font map-settings-error" role="status"></p>
 			</div>
-		</div>
+		</main>
 	</div><!-- /page -->
 
-	<div data-role="page" id="levels" data-title="Location Guard" class="page">
-		<div data-role="header">
-			<a href="#left-panel" class="flat-btn ui-btn ui-btn-icon-notext ui-icon-bars"></a>
+	<div id="levels" class="page">
+		<header class="header">
+			<button type="button" class="menu-btn" aria-label="Menu"></button>
 			<h1>Privacy Levels</h1>
-		</div>
+		</header>
 
-		<div role="main" class="ui-content no-space">
-			<div id="activeLevel" data-role="navbar">
-				<ul>
-					<li><a level="low" href="#">Low</a></li>
-					<li><a level="medium" href="#" class="ui-btn-active">Medium</a></li>
-					<li><a level="high" href="#">High</a></li>
+		<main class="content no-space">
+			<div id="activeLevel">
+				<ul class="tabs">
+					<li><a level="low" href="#levels">Low</a></li>
+					<li><a level="medium" href="#levels" class="active">Medium</a></li>
+					<li><a level="high" href="#levels">High</a></li>
 				</ul>
 			</div>
-			<div class="ui-bar">
+			<div class="bar">
 				<div class="no-space">
 					<p style="float: left" class="no-space">Protection: <b><span id="radius"></span> m</b></p>
 					<p style="float: right" class="no-space">Accuracy: <b><span id="accuracy"></span> m</b></p>
 					<p style="clear: both"></p>
 				</div>
-				<div id="setRadius" class="slider"></div>
+				<input id="setRadius" class="slider" type="range" min="40" max="3000" step="20" value="40">
 
 				<div class="no-space">Cache location for: <b><span id="cacheTime"></span></b></div>
-				<div id="setCacheTime" class="slider"></div>
+				<input id="setCacheTime" class="slider" type="range" min="0" max="69" step="1" value="0">
 			</div>
 
 			<div id="levelMap" class="flex"></div>
-		</div>
+		</main>
 	</div><!-- /page -->
 
-	<div data-role="page" id="fixedPos" data-title="Location Guard" class="page">
-		<div data-role="header">
-			<a href="#left-panel" class="flat-btn ui-btn ui-btn-icon-notext ui-icon-bars"></a>
+	<div id="fixedPos" class="page">
+		<header class="header">
+			<button type="button" class="menu-btn" aria-label="Menu"></button>
 			<h1>Fixed Location</h1>
-		</div>
+		</header>
 
-		<div role="main" class="ui-content no-space">
+		<main class="content no-space">
 			<div id="fixedPosMap" class="flex"></div>
 
-			<div data-role="controlgroup" class="no-space">
+			<div class="group no-space">
 				<div class="fixed-coordinates">
 					<label for="fixedLatitude">Latitude</label>
 					<input id="fixedLatitude" type="number" min="-90" max="90" step="any">
 					<label for="fixedLongitude">Longitude</label>
 					<input id="fixedLongitude" type="number" min="-180" max="180" step="any">
-					<button class="ui-btn" id="saveFixedCoordinates">Set coordinates</button>
+					<button class="btn" id="saveFixedCoordinates">Set coordinates</button>
 					<p id="fixedCoordinatesError" class="small-font map-settings-error" role="status"></p>
 				</div>
 				<label>
 					<input id="fixedPosNoAPI" type="checkbox">Fixed location disables geolocation
 					<p class="small-font no-space"><b>warning: </b> this also disables the permission dialog</p>
 				</label>
-				<button class="ui-btn showFAQ" faq="fixed">What is a "fixed location"?</button>
+				<button class="btn showFAQ" faq="fixed">What is a "fixed location"?</button>
 			</div>
-		</div>
+		</main>
 	</div><!-- /page -->
 
-	<div data-role="panel" id="left-panel" data-position="left" data-display="overlay" data-theme="a">
-		<ul data-role="listview">
-			<li data-icon="none" class="menu-title" data-theme="b">Location Guard</li>
-			<li data-icon="gear"><a href="#options">Options</a></li>
-			<li data-icon="eye"><a href="#levels">Privacy Levels</a></li>
-			<li data-icon="location"><a href="#fixedPos">Fixed Location</a></li>
-			<li data-icon="info"><a href="faq.html#general">FAQ</a></li>
-			<li data-icon="navigation"><a href="demo.html">Demo</a></li>
+	<nav id="left-panel">
+		<ul>
+			<li class="menu-title">Location Guard</li>
+			<li><a class="icon-gear" href="#options">Options</a></li>
+			<li><a class="icon-eye" href="#levels">Privacy Levels</a></li>
+			<li><a class="icon-location" href="#fixedPos">Fixed Location</a></li>
+			<li><a class="icon-info" href="faq.html#general">FAQ</a></li>
+			<li><a class="icon-navigation" href="demo.html">Demo</a></li>
 		</ul>
-	</div><!-- /panel -->
+	</nav><!-- /panel -->
 </body>
 </html>

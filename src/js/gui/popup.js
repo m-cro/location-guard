@@ -5,19 +5,16 @@ Browser.log("popup loading");
 
 Browser.init('popup');
 
-const $ = require('jquery');
-$.mobile.hashListeningEnabled = false;		// disabling state changing is needed in firefox,
-$.mobile.pushStateEnabled = false;			// it breaks when executed in the popup cause there's no history
-$.mobile.ajaxEnabled = false;				// doesn't hurt but not needed
-$.mobile.autoInitializePage = false;		// don't initialize until we set all values, avoids a quick but visible refresh
+const { byId } = require('./ui');
 
-$(document).ready(drawUI);
+document.addEventListener('DOMContentLoaded', drawUI);
 
 
 var url;
 
-async function doAction() {
-	var action = $(this).attr("id");
+async function doAction(e) {
+	e.preventDefault();
+	var action = this.id;
 
 	switch(action) {
 		case 'options':
@@ -50,7 +47,7 @@ async function doAction() {
 			break;
 
 		case 'setLevel':
-			$("#levels").popup("open");
+			byId("levels").hidden = false;
 			break;
 
 		default:	// set level
@@ -89,50 +86,53 @@ async function drawUI() {
 		var domain = Util.extractDomain(url);
 		var level = st.domainLevel[domain] || st.defaultLevel;
 
-		$("#title").text(
+		byId("title").textContent =
 			st.paused		? "Location Guard is paused" :
 			level == 'real'	? "Using your real location" :
 			level == 'fixed'? "Using a fixed location" :
-			"Privacy level: " + level
-		);
-		$("#setLevel b").text(domain);
-		$("#"+level).attr("checked", true);
+			"Privacy level: " + level;
+		document.querySelector("#setLevel b").textContent = domain;
+		byId(level).checked = true;
 
 	} else {
-		$("#title").parent().hide();
+		byId("title").parentElement.hidden = true;
 	}
 
-	$("#pause").text((st.paused ? "Resume" : "Pause") + " Location Guard");
-	$("#pause").parent().attr("data-icon", st.paused ? "play" : "pause");
+	byId("pause").textContent = (st.paused ? "Resume" : "Pause") + " Location Guard";
+	byId("pauseItem").className = st.paused ? "icon-play" : "icon-pause";
 
-	$("#setLevel").toggle(callUrl && !st.paused);
-	$("#hideIcon").toggle(callUrl && !st.paused && !Browser.capabilities.permanentIcon());	// hiding the icon only works with page action (not browser action)
+	byId("setLevel").parentElement.hidden = !(callUrl && !st.paused);
+	// hiding the icon only works with page action (not browser action)
+	byId("hideIcon").parentElement.hidden = !(callUrl && !st.paused && !Browser.capabilities.permanentIcon());
 
-	$("a, input").on("click", doAction);
+	for(const el of document.querySelectorAll("#container a, #container input"))
+		el.addEventListener("click", doAction);
 
-	// we're ready, init
-	$.mobile.initializePage();
+	// clicking anywhere else closes the level chooser
+	document.addEventListener("click", function(e) {
+		if(!e.target.closest("#levels, #setLevel"))
+			byId("levels").hidden = true;
+	});
 
 	if(Browser.capabilities.popupAsTab()) {
 		// the popup is displayed as a normal tab
 		// set 100% width/height
-		$("html, body, #container").css({
-			width:  "100%",
-			height: "100%"
-		});
+		for(const el of [document.documentElement, document.body, byId("container")]) {
+			el.style.width = "100%";
+			el.style.height = "100%";
+		}
 		// show the close button
-		$("#close").css({ display: "block" })
-					.on("click", Browser.gui.closePopup);
+		byId("close").style.display = "block";
+		byId("close").addEventListener("click", Browser.gui.closePopup);
 
 	} else {
 		// normal popup, resize body to match #container
-		var width = $("#container").width();
-		var height = $("#container").height();
+		const box = byId("container").getBoundingClientRect();
 
-		$("html, body").css({
-			width:  width,
-			height: height,
-		});
+		for(const el of [document.documentElement, document.body]) {
+			el.style.width = Math.ceil(box.width) + "px";
+			el.style.height = Math.ceil(box.height) + "px";
+		}
 	}
 }
 

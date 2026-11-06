@@ -32,7 +32,7 @@ build-opera: build/opera/manifest.json
 build-firefox: build/firefox/manifest.json
 build-edge: build/edge/manifest.json
 
-COMMON_MODULES = -x ./src/js/common/browser_base.js -x ./src/js/common/browser.js -x ./src/js/common/util.js -x ./src/js/common/post-rpc.js -x ./src/js/common/laplace.js -x leaflet -x leaflet.locatecontrol -x jquery -x sglide
+COMMON_MODULES = -x ./src/js/common/browser_base.js -x ./src/js/common/browser.js -x ./src/js/common/util.js -x ./src/js/common/post-rpc.js -x ./src/js/common/laplace.js -x leaflet -x leaflet.locatecontrol
 
 MV3_TARGETS = chrome edge opera
 BUILD_NAME = $(notdir $(patsubst %/,%,$(dir $@)))
@@ -47,10 +47,7 @@ build/%/manifest.json: $(call find, src, *) package.json package-lock.json Makef
 
 	# bundles with common modules
 	npx browserify -r ./src/js/common/browser_base.js -r ./src/js/common/browser.js -r ./src/js/common/util.js -r ./src/js/common/post-rpc.js -r ./src/js/common/laplace.js  > $(BUILD_DIR)/js/common.js
-	npx browserify -r leaflet -r leaflet.locatecontrol -r jquery -r sglide ./src/js/gui/load-jquery.js   > $(BUILD_DIR)/js/common-gui.js
-
-	# jquery has no proper npm package, we just append the code (from jquery-mobile-babel-safe) into commin-gui.js. Seel also load-jquery.js.
-	cat ./node_modules/jquery-mobile-babel-safe/js/jquery.mobile-1.4.5.js >> $(BUILD_DIR)/js/common-gui.js
+	npx browserify -r leaflet -r leaflet.locatecontrol ./src/js/gui/load-gui.js   > $(BUILD_DIR)/js/common-gui.js
 
 	# entry points
 	npx browserify $(COMMON_MODULES) ./src/js/main.js            > $(BUILD_DIR)/js/main.js
@@ -64,7 +61,6 @@ build/%/manifest.json: $(call find, src, *) package.json package-lock.json Makef
 	if [ "$(filter $(BUILD_NAME), $(MV3_TARGETS))" ]; then npx browserify ./src/js/main.js > $(BUILD_DIR)/js/service-worker.js; fi
 
 	# copy module css/images
-	cp -r node_modules/jquery-mobile-babel-safe/css/images node_modules/jquery-mobile-babel-safe/css/jquery.mobile-1.4.5.min.css $(BUILD_DIR)/css/
 	cp -r node_modules/leaflet/dist/images                 node_modules/leaflet/dist/leaflet.css                                 $(BUILD_DIR)/css/
 
 	cpp -P -Dis_$(BUILD_NAME) $(MV3_FLAG) src/manifest.json | sed '/^[[:space:]]*\/\//d' > $(BUILD_DIR)/manifest.json

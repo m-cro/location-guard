@@ -1,46 +1,25 @@
-/* make the content take the full height of the page (minus the header) */
-.page {
-	/* NOTE: jqm will set full height dynamically, but with height: 100% it will be faster on fennec, without a visible resize */
-	height: 100%;
-}
-.ui-content {
-	position: absolute;
-	top: 44px;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	display: flex;
-	flex-direction: column;
-}
-
-/* ensure that #faq and its content are big enough for the contents. So scrolling happens for the
- * whole page, not just for the div, which is _much_ faster on mobile! */
-#faq {
-	overflow: visible;
-}
-#faq .ui-content {
-	bottom: auto;
-}
+/* page layout, buttons, forms etc. live in ui.css */
 
 /* on large screens, permanently show the panel and hide the menu icon */
 @media (min-width: 50em) {
 	#left-panel {
 		visibility: visible;
-		position: relative;
-		width: 17em;
-		box-shadow:2px 0 2px rgba(0,0,0,.15);
-		transition: none !important;
-		transform: none !important;
+		transform: none;
+		transition: none;
+		box-shadow: 2px 0 2px rgba(0,0,0,.15);
 	}
+	.panel-backdrop { display: none; }
 	.page {
-		position: absolute;
-		left: 17em !important;
-		right: 0 !important;
-		width: auto !important;
+		left: 17em;
 		max-width: 55em;
-		box-shadow:2px 0 2px rgba(0,0,0,.15);
+		box-shadow: 2px 0 2px rgba(0,0,0,.15);
 	}
-	.ui-header > a {
+	.page.scroll {
+		left: 0;
+		margin-left: 17em;
+		max-width: 55em;
+	}
+	.menu-btn {
 		visibility: hidden;
 	}
 }
@@ -78,9 +57,6 @@
 .fixed-coordinates {
 	padding: 0.5em 0;
 }
-.fixed-coordinates .ui-input-text {
-	margin-top: 0;
-}
 
 .map-popup {
 	font-size: 1.2em;
@@ -93,71 +69,6 @@
 	border-radius: 3px;
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 	pointer-events: none;
-}
-.popup-location-btn {
-	width: 1.2em;
-	height: 1.2em;
-	margin: 0 0.3em 0 0.3em;
-	border-radius: 4px;
-}
-
-.menu-title {
-	background-color: #4a4a4a !important;
-	font-weight: bold;
-}
-
-/* this prevents the title from being cut */
-.ui-header .ui-title {
-	margin-left: 1em; margin-right: 1em;
-}
-
-/* prevents loading of ajax-loader.gif */
-.ui-icon-loading {
-	background:none !important;
-}
-
-/* make icon transparent without using ui-btn */
-.icon-trans::after { background-color: transparent; }
-
-/* avoid the anoying focus/highlight effects in the panel's links */
-#left-panel .ui-btn-active {
-	background-color: #f6f6f6;
-	color: inherit;
-	text-shadow: inherit;
-	border-color: #ddd;
-}
-#left-panel .ui-btn:focus {
-	box-shadow: none !important;
-	-webkit-box-shadow: none !important;
-}
-
-/* slider styling */
-.slider {
-	margin: 0.8em 0 0.8em 0 !important;
-	height: 10px !important;
-	overflow: visible !important;
-	background-color: #e9e9e9;
-	border-color: #ddd;
-	border-radius: .3125em !important;
-	border-width: 1px;
-	border-style: solid;
-	box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
-}
-.follow_bar {
-	display: none;
-}
-.slider_knob {
-	width: 24px !important;
-	height: 24px !important;
-	background-color: #f6f6f6 !important;
-	display: block !important;
-	top: 50%;
-	margin: -13px 0 0 0;
-	border-color: #ddd;
-	border-radius: inherit;
-	border-width: 1px;
-	border-style: solid;
-	box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 
 /* icons for demo/faq */
@@ -187,7 +98,7 @@
 /* demo tour (see js/gui/tour.js) */
 .tour-tooltip {
 	position: fixed;
-	z-index: 1000;		/* behind jqm's panel */
+	z-index: 1000;		/* behind the side panel */
 	box-sizing: border-box;
 	padding: 1em;
 	font-size: 1.1em;
@@ -221,7 +132,7 @@
 /* dims everything except the highlighted element, and never blocks clicks */
 .tour-highlight {
 	position: fixed;
-	z-index: 999;		/* behind jqm's panel */
+	z-index: 999;		/* behind the side panel */
 	pointer-events: none;
 	box-shadow: 0 0 0 100vmax rgba(0,0,0,.5);
 	border-radius: 3px;
