@@ -11,7 +11,7 @@
 		"64": "images/pin_64.png",
 		"128": "images/pin_128.png"
 	},
-	"version": "2.6.0",
+	"version": "2.6.1",
 
 #if is_firefox
 	// Needed for Firefox on Android. New id for this fork (the original
