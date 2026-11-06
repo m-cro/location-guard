@@ -77,7 +77,7 @@ build/%/manifest.json: $(call find, src, *) package.json package-lock.json Makef
 
 package-chrome:  build/location-guard-chrome-$(VER).zip
 package-opera:   build/location-guard-opera-$(VER).zip
-package-firefox: build/location-guard-firefox-$(VER).xpi
+package-firefox: build/location-guard-firefox-$(VER).zip
 package-edge:    build/location-guard-edge-$(VER).zip
 
 build/location-guard-%-$(VER).zip: build/%/manifest.json
@@ -85,7 +85,7 @@ build/location-guard-%-$(VER).zip: build/%/manifest.json
 	(cd build/$* && zip -r ../location-guard-$*-$(VER).zip .)
 
 build/location-guard-%-$(VER).xpi: build/location-guard-%-$(VER).zip
-	mv $< $@
+	cp $< $@
 
 
 # test #################################################################
